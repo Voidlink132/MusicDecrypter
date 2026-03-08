@@ -1,7 +1,10 @@
-name: Build NCM2FLAC APK
+name: Build Android Debug APK
+
 on:
   push:
-    branches: [ master ]
+    branches: [ main ]  # 触发条件：推送到main分支时执行
+  pull_request:
+    branches: [ main ]  # 触发条件：提交PR到main分支时执行
 
 jobs:
   build:
@@ -16,15 +19,21 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
+          cache: gradle
 
       - name: Grant execute permission for gradlew
-        run: chmod +x gradle
+        run: chmod +x gradlew
 
-      - name: Build with Gradle
-        run: ./gradlew assembleDebug
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug --stacktrace
 
-      - name: Upload APK
+      # ========== 新增：上传 APK 产物 ==========
+      - name: Upload Debug APK
         uses: actions/upload-artifact@v4
+        if: success()  # 只有构建成功时才执行此步骤
         with:
-          name: NCM2FLAC-Debug-APK
+          name: NCM2FLAC-Converter-APK
+          # 指定 APK 路径，与之前的输出目录一致
           path: app/build/outputs/apk/debug/app-debug.apk
+          # 可选：设置产物保留天数，默认90天
+          retention-days: 30

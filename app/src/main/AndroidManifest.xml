@@ -4,9 +4,7 @@
 
     <application
         android:allowBackup="true"
-        <!-- 移除自定义图标，使用系统默认图标 -->
         android:label="NCM2FLAC Converter"
-        <!-- 移除自定义主题，使用系统默认主题 -->
         android:supportsRtl="true">
         <activity
             android:name=".MainActivity"

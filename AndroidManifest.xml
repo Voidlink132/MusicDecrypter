@@ -1,16 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.ncmconverter.app"
-    android:versionCode="1"
-    android:versionName="v1.1">
-
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
-    <uses-permission android:name="android.permission.INTERNET" />
+    package="com.example.ncm2flac">
 
     <application
-        android:label="NCM2FLAC"
-        android:allowBackup="true">
+        android:allowBackup="true"
+        android:label="NCM2FLAC Converter"
+        android:supportsRtl="true"
+        android:theme="@android:style/Theme.DeviceDefault">
+
         <activity
             android:name=".MainActivity"
             android:exported="true">
@@ -20,4 +17,5 @@
             </intent-filter>
         </activity>
     </application>
+
 </manifest>

@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.NCM2FLAC" parent="Theme.MaterialComponents.Light.NoActionBar">
+    <!-- 完全匹配AndroidManifest里的主题名称，无拼写错误 -->
+    <style name="Theme.Ncm2Flac" parent="Theme.MaterialComponents.Light.NoActionBar">
         <item name="colorPrimary">#FF6200EE</item>
         <item name="colorPrimaryVariant">#FF3700B3</item>
         <item name="colorOnPrimary">#FFFFFFFF</item>

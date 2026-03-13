@@ -1,7 +1,9 @@
 package com.ncm2flac.utils;
 
 import android.content.Context;
+import android.database.Cursor;
 import android.net.Uri;
+import android.provider.MediaStore;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -32,7 +34,7 @@ public class FileUtils {
         fos.close();
     }
 
-    // 流式写入文件（大文件专用，避免OOM）
+    // 流式写入文件
     public static void writeStreamToFile(InputStream is, OutputStream os) throws Exception {
         byte[] buffer = new byte[1024 * 8];
         int len;
@@ -60,5 +62,26 @@ public class FileUtils {
             return fileName + "." + newExt;
         }
         return fileName.substring(0, dotIndex) + "." + newExt;
+    }
+
+    // 【新增缺失的方法】从Uri获取真实文件名，解决报错
+    public static String getFileNameFromUri(Context context, Uri uri) {
+        String fileName = null;
+        if (uri.getScheme() != null && uri.getScheme().equals("content")) {
+            Cursor cursor = context.getContentResolver().query(uri, new String[]{MediaStore.MediaColumns.DISPLAY_NAME}, null, null, null);
+            if (cursor != null) {
+                if (cursor.moveToFirst()) {
+                    int index = cursor.getColumnIndex(MediaStore.MediaColumns.DISPLAY_NAME);
+                    if (index != -1) {
+                        fileName = cursor.getString(index);
+                    }
+                }
+                cursor.close();
+            }
+        }
+        if (fileName == null) {
+            fileName = uri.getLastPathSegment();
+        }
+        return fileName;
     }
 }

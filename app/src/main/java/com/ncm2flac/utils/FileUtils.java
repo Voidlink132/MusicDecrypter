@@ -8,7 +8,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
-import java.io.OutputStream;
 
 public class FileUtils {
 
@@ -34,23 +33,9 @@ public class FileUtils {
         fos.close();
     }
 
-    // 流式写入文件
-    public static void writeStreamToFile(InputStream is, OutputStream os) throws Exception {
-        byte[] buffer = new byte[1024 * 8];
-        int len;
-        while ((len = is.read(buffer)) != -1) {
-            os.write(buffer, 0, len);
-        }
-        is.close();
-        os.flush();
-        os.close();
-    }
-
     // 获取文件扩展名
     public static String getFileExtension(String fileName) {
-        if (fileName == null || !fileName.contains(".")) {
-            return "";
-        }
+        if (fileName == null || !fileName.contains(".")) return "";
         return fileName.substring(fileName.lastIndexOf(".") + 1).toLowerCase();
     }
 
@@ -58,13 +43,11 @@ public class FileUtils {
     public static String replaceFileExtension(String fileName, String newExt) {
         if (fileName == null) return "";
         int dotIndex = fileName.lastIndexOf(".");
-        if (dotIndex == -1) {
-            return fileName + "." + newExt;
-        }
+        if (dotIndex == -1) return fileName + "." + newExt;
         return fileName.substring(0, dotIndex) + "." + newExt;
     }
 
-    // 【新增缺失的方法】从Uri获取真实文件名，解决报错
+    // 从Uri获取真实文件名（解决之前的缺失报错）
     public static String getFileNameFromUri(Context context, Uri uri) {
         String fileName = null;
         if (uri.getScheme() != null && uri.getScheme().equals("content")) {
@@ -72,16 +55,12 @@ public class FileUtils {
             if (cursor != null) {
                 if (cursor.moveToFirst()) {
                     int index = cursor.getColumnIndex(MediaStore.MediaColumns.DISPLAY_NAME);
-                    if (index != -1) {
-                        fileName = cursor.getString(index);
-                    }
+                    if (index != -1) fileName = cursor.getString(index);
                 }
                 cursor.close();
             }
         }
-        if (fileName == null) {
-            fileName = uri.getLastPathSegment();
-        }
+        if (fileName == null) fileName = uri.getLastPathSegment();
         return fileName;
     }
 }

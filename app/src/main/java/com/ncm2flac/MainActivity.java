@@ -104,54 +104,45 @@ public class MainActivity extends AppCompatActivity {
 
     // 开始解密转换
     private void startDecrypt() {
-        tvStatus.setText("正在解密...");
-        new Thread(() -> {
-            try {
-                // 1. 读取文件
-                byte[] ncmData = FileUtils.readUriToBytes(this, selectedFileUri);
-                // 2. 解密
-                NcmDecryptor decryptor = new NcmDecryptor(ncmData);
-                boolean success = decryptor.decrypt();
-                if (!success) {
-                    throw new Exception("解密失败");
-                }
-
-                // 3. 生成输出文件
-                String fileName = selectedFileUri.getLastPathSegment();
-                String outputFileName = FileUtils.replaceFileExtension(fileName, decryptor.getAudioFormat());
-                File outputDir;
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    // Android 10+ 用应用私有目录，无需权限
-                    outputDir = new File(getExternalFilesDir(Environment.DIRECTORY_MUSIC), "Ncm2Flac");
-                } else {
-                    // 旧系统用公共音乐目录
-                    outputDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC), "Ncm2Flac");
-                }
-                if (!outputDir.exists()) outputDir.mkdirs();
-                File outputFile = new File(outputDir, outputFileName);
-
-                // 4. 写入音频文件
-                AudioPackager.writeAudioFile(decryptor.getAudioRawData(), decryptor.getAudioFormat(), outputFile);
-
-                // 5. 写入元数据和封面
-                MetadataHandler.writeMetadata(outputFile, decryptor.getMetadata(), decryptor.getCoverImage());
-
-                // 6. 更新UI
+    tvStatus.setText("正在验证NCM文件...");
+    new Thread(() -> {
+        try {
+            byte[] ncmData = FileUtils.readUriToBytes(this, selectedFileUri);
+            NcmDecryptor decryptor = new NcmDecryptor(ncmData);
+            
+            // 增加解密结果判断，友好提示
+            if (!decryptor.decrypt()) {
                 runOnUiThread(() -> {
-                    tvStatus.setText("转换完成！\n文件已保存到：" + outputFile.getAbsolutePath());
-                    Toast.makeText(this, "转换成功", Toast.LENGTH_LONG).show();
+                    tvStatus.setText("解析失败：不是有效的NCM文件");
+                    Toast.makeText(this, "文件无效，请选择标准NCM文件", Toast.LENGTH_LONG).show();
                 });
-
-            } catch (Exception e) {
-                runOnUiThread(() -> {
-                    tvStatus.setText("转换失败：" + e.getMessage());
-                    Toast.makeText(this, "转换失败：" + e.getMessage(), Toast.LENGTH_LONG).show();
-                });
-                e.printStackTrace();
+                return;
             }
-        }).start();
-    }
 
+            // 后续的文件写入逻辑（不变）
+            String fileName = FileUtils.getFileNameFromUri(this, selectedFileUri);
+            String outputFileName = FileUtils.replaceFileExtension(fileName, decryptor.getAudioFormat());
+            File outputDir = new File(getExternalFilesDir(Environment.DIRECTORY_MUSIC), "Ncm2Flac");
+            if (!outputDir.exists()) outputDir.mkdirs();
+            File outputFile = new File(outputDir, outputFileName);
+
+            AudioPackager.writeAudioFile(decryptor.getAudioRawData(), decryptor.getAudioFormat(), outputFile);
+            MetadataHandler.writeMetadata(outputFile, decryptor.getMetadata(), decryptor.getCoverImage());
+
+            runOnUiThread(() -> {
+                tvStatus.setText("转换完成！\n保存路径：" + outputFile.getAbsolutePath());
+                Toast.makeText(this, "转换成功", Toast.LENGTH_LONG).show();
+            });
+
+        } catch (Exception e) {
+            runOnUiThread(() -> {
+                tvStatus.setText("转换失败：" + e.getMessage());
+                Toast.makeText(this, "失败：" + e.getMessage(), Toast.LENGTH_LONG).show();
+            });
+            e.printStackTrace();
+        }
+    }).start();
+}
     // 处理外部打开的文件
     private void handleIntent(Intent intent) {
         if (intent != null && Intent.ACTION_VIEW.equals(intent.getAction())) {

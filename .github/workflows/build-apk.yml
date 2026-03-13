@@ -1,11 +1,19 @@
-name: 自动编译打包APK
+name: 手动编译打包APK
 
+# 【核心修改】仅保留手动触发，彻底关闭自动触发
 on:
-  push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
-  workflow_dispatch: # 支持手动触发
+  workflow_dispatch: # 这是GitHub官方手动触发的专属配置，只有你手动点击才会执行
+    # 可选：手动触发时支持自定义参数（比如选择编译Release/Debug）
+    inputs:
+      buildType:
+        description: '编译类型'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - release
+          - debug
 
 jobs:
   build:
@@ -32,20 +40,25 @@ jobs:
 
       - name: 清理旧编译缓存
         run: ./gradlew clean
-  
+
+      # 根据手动选择的编译类型执行
       - name: 编译Release APK
+        if: ${{ inputs.buildType == 'all' || inputs.buildType == 'release' }}
         run: ./gradlew assembleRelease
 
       - name: 编译Debug APK
+        if: ${{ inputs.buildType == 'all' || inputs.buildType == 'debug' }}
         run: ./gradlew assembleDebug
 
       - name: 上传Release APK到制品
+        if: ${{ inputs.buildType == 'all' || inputs.buildType == 'release' }}
         uses: actions/upload-artifact@v4
         with:
           name: Ncm2Flac-Release-APK
           path: app/build/outputs/apk/release/*.apk
 
       - name: 上传Debug APK到制品
+        if: ${{ inputs.buildType == 'all' || inputs.buildType == 'debug' }}
         uses: actions/upload-artifact@v4
         with:
           name: Ncm2Flac-Debug-APK

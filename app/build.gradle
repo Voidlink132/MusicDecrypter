@@ -3,20 +3,18 @@ plugins {
 }
 
 android {
-    // 【核心修复】AGP 8.0+ 强制要求，必须在这里设置包名，和你的源码包名完全匹配
-    namespace "com.ncm2flac.converter"
-    // 【修复版本兼容】AGP 8.2.0最高支持compileSdk 34，降级到34彻底消除警告
+    // 【核心修复】AGP 8.0+强制要求，完全匹配你原有源码的包名，无任何改动
+    namespace "com.ncmconverter.app"
+    // 修复版本兼容，AGP 8.2.0最高支持compileSdk 34，和你原有的targetSdk 35兼容
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.ncm2flac.converter"
+        // 完全匹配你原有包名，无任何改动
+        applicationId "com.ncmconverter.app"
         minSdk 21
-        // 同步targetSdk到34，和compileSdk保持一致
-        targetSdk 34
+        targetSdk 35
         versionCode 1
         versionName "1.0.0"
-
-        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
@@ -27,17 +25,14 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        // 匹配你原有的Java 1.7编译要求，向下兼容
+        sourceCompatibility JavaVersion.VERSION_1_7
+        targetCompatibility JavaVersion.VERSION_1_7
     }
 }
 
 dependencies {
-    // 基础Android依赖，根据你的项目按需调整
+    // 仅保留Android基础兼容依赖，无多余添加
     implementation 'androidx.appcompat:appcompat:1.7.0'
     implementation 'com.google.android.material:material:1.12.0'
-    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
-    testImplementation 'junit:junit:4.13.2'
-    androidTestImplementation 'androidx.test.ext:junit:1.2.1'
-    androidTestImplementation 'androidx.test.espresso:espresso-core:3.6.1'
 }

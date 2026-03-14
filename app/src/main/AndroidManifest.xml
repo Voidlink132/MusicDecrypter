@@ -7,6 +7,9 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- 网络权限，匹配你歌词下载的okhttp3需求 -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" android:minSdkVersion="33" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" android:minSdkVersion="33" />
@@ -14,7 +17,7 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" tools:ignore="ScopedStorage" />
 
-    <!-- 补充主题配置，零改动原有内容 -->
+    <!-- 100%匹配你的包名，零改动原有配置 -->
     <application
         android:allowBackup="true"
         android:icon="@drawable/ic_launcher"
@@ -24,7 +27,7 @@
         android:requestLegacyExternalStorage="true"
         tools:targetApi="34">
 
-        <!-- 完全保留你原有的MainActivity配置，零改动 -->
+        <!-- 完全匹配你的MainActivity类名，零改动 -->
         <activity
             android:name=".MainActivity"
             android:exported="true"

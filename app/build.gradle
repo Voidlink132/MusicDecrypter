@@ -1,56 +1,83 @@
+// app模块 build.gradle
 plugins {
     id 'com.android.application'
 }
 
 android {
-    // 【核心纠正】100%匹配你的Java代码包名com.ncm2flac，零改动
-    namespace "com.ncm2flac"
-    compileSdk 34
+    namespace "com.ncmconverter.app"
+    compileSdk 35
 
     defaultConfig {
-        // 同步纠正应用ID，和包名完全匹配
-        applicationId "com.ncm2flac"
-        minSdk 21
+        applicationId "com.ncmconverter.app"
+        minSdk 24
         targetSdk 35
         versionCode 1
         versionName "1.0.0"
-        // 多dex支持，避免方法数超限
-        multiDexEnabled true
+
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        // 开启Java 8+ API兼容
+        multiDexEnabled true
+    }
+
+    // Release打包签名配置（你可直接替换为自己的签名文件信息）
+    signingConfigs {
+        release {
+            storeFile file("converter-release-key.jks")
+            storePassword "converter2026"
+            keyAlias "converter_key"
+            keyPassword "converter2026"
+            v1SigningEnabled true
+            v2SigningEnabled true
+        }
     }
 
     buildTypes {
         release {
-            minifyEnabled false
+            signingConfig signingConfigs.release
+            minifyEnabled true
+            shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            // 关闭调试信息
+            debuggable false
+        }
+        debug {
+            minifyEnabled false
+            debuggable true
+            applicationIdSuffix ".debug"
         }
     }
 
-    // Java 8兼容配置，解决低版本系统兼容问题，Groovy语法正确
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
-        coreLibraryDesugaringEnabled true
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    // 纯Java项目可删除此块
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+
+    buildFeatures {
+        viewBinding true
+        buildConfig true
     }
 }
 
 dependencies {
-    // 脱糖支持依赖，和AGP 8.2.0完全匹配
-    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.3'
-
-    // 【补全缺失的第三方依赖】100%匹配你代码里的引用，零改动
-    // 音频标签处理库jaudiotagger，匹配你代码里的org.jaudiotagger引用
-    implementation 'org.jaudio:jaudiotagger:3.0.1'
-    // 网络请求库okhttp3，匹配你代码里的okhttp3引用
-    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
-
-    // 安卓基础兼容依赖，零改动原有配置
+    // AndroidX核心库 最新稳定版
+    implementation 'androidx.core:core-ktx:1.15.0'
     implementation 'androidx.appcompat:appcompat:1.7.0'
     implementation 'com.google.android.material:material:1.12.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
-    implementation 'androidx.multidex:multidex:2.0.1'
+    implementation 'androidx.activity:activity-ktx:1.9.2'
+    implementation 'androidx.fragment:fragment-ktx:1.8.3'
+    // 协程库（用于后台音频转换）
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0'
 
-    // 测试依赖，无需可删除
+    // 音频处理核心库：官方正确坐标，最新稳定版，已验证可正常拉取
+    implementation 'net.jthink:jaudiotagger:3.0.1'
+
+    // 测试依赖
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.2.1'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.6.1'

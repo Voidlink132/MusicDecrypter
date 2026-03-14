@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- 适配AppCompatActivity的核心主题 -->
     <style name="Theme.NCMConverterApp" parent="Theme.AppCompat.Light.NoActionBar">
         <item name="windowNoTitle">true</item>
         <item name="windowActionBar">false</item>
@@ -7,6 +8,7 @@
         <item name="android:statusBarColor">#FF80AB</item>
     </style>
 
+    <!-- Tab文字样式，调整大小，给图标留出空间 -->
     <style name="TabTextStyle">
         <item name="android:textSize">12sp</item>
         <item name="android:textStyle">normal</item>

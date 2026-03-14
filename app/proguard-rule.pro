@@ -6,7 +6,7 @@
 }
 
 # 保留你自定义的类，避免混淆后找不到
--keep class com.ncmconverter.app.** { *; }
+-keep class com.ncm2flac.** { *; }
 
 # 系统组件不混淆
 -keep public class * extends android.app.Activity

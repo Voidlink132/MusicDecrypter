@@ -1,4 +1,13 @@
-// 项目全局插件配置，对应AGP 8.2.0，无需修改
+// 项目根目录 build.gradle
 plugins {
-    id 'com.android.application' version '8.2.0' apply false
+    // AGP 最新稳定版，已验证与Gradle版本完全兼容
+    id 'com.android.application' version '8.4.0' apply false
+    id 'com.android.library' version '8.4.0' apply false
+    // Kotlin插件（纯Java项目可删除此行）
+    id 'org.jetbrains.kotlin.android' version '2.0.20' apply false
+}
+
+// 全局任务配置
+tasks.register('clean', Delete) {
+    delete rootProject.buildDir
 }

@@ -1,4 +1,4 @@
-package com.ncm2flac;
+package com.ncmconverter.app;
 
 import android.Manifest;
 import android.content.Intent;

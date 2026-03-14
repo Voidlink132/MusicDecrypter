@@ -30,12 +30,16 @@ android {
 }
 
 dependencies {
-    // 纯Java核心依赖，版本完全适配compileSdk 34，无任何Kotlin内容
-    implementation 'androidx.appcompat:appcompat:1.6.1'
-    implementation 'com.google.android.material:material:1.11.0'
+    // 纯Java核心依赖，无任何Kotlin内容，版本稳定全网可下载，完全适配compileSdk 34
+    implementation('androidx.appcompat:appcompat:1.6.1') {
+        exclude group: 'androidx.core', module: 'core-ktx' // 彻底排除Kotlin传递依赖
+    }
+    implementation('com.google.android.material:material:1.11.0') {
+        exclude group: 'androidx.core', module: 'core-ktx'
+    }
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
-    implementation 'androidx.core:core:1.14.0'
-    
+    implementation 'androidx.core:core:1.12.0' // 换成超稳定通用版，100%可下载，无兼容问题
+
     // 测试依赖，不需要可以直接删除
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'

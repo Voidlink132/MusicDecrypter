@@ -5,37 +5,34 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.ProgressBar;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.ncm2flac.OnConvertListener;
 import com.ncm2flac.R;
-import com.ncm2flac.core.LyricDownloader;
-import com.ncm2flac.core.MetadataHandler;
-import com.ncm2flac.core.NcmDecryptor;
-import com.ncm2flac.utils.FileUtils;
-import com.ncm2flac.utils.SPUtils;
+import com.ncm2flac.core.NcmDecryptCore;
 
 import java.io.File;
 import java.util.List;
+import java.util.Locale;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class NcmFileAdapter extends RecyclerView.Adapter<NcmFileAdapter.ViewHolder> {
+
     private final Context context;
-    private final List<File> ncmFileList;
-    private final OnConvertListener listener;
+    private final List<File> fileList;
+    private final String savePath;
+    // 单线程池，避免多文件同时转换导致内存溢出
+    private final ExecutorService convertExecutor = Executors.newSingleThreadExecutor();
 
-    // 转换状态回调接口
-    public interface OnConvertListener {
-        void onConvertStart();
-        void onConvertFinish(boolean success, String msg);
-    }
-
-    public NcmFileAdapter(Context context, List<File> ncmFileList, OnConvertListener listener) {
+    public NcmFileAdapter(Context context, List<File> fileList, String savePath) {
         this.context = context;
-        this.ncmFileList = ncmFileList;
-        this.listener = listener;
+        this.fileList = fileList;
+        this.savePath = savePath;
     }
 
     @NonNull
@@ -47,76 +44,117 @@ public class NcmFileAdapter extends RecyclerView.Adapter<NcmFileAdapter.ViewHold
 
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
-        File ncmFile = ncmFileList.get(position);
-        // 绑定文件名和大小
+        File ncmFile = fileList.get(position);
         holder.tvFileName.setText(ncmFile.getName());
-        holder.tvFileSize.setText(FileUtils.formatFileSize(ncmFile.length()));
+        // 计算文件大小，显示MB
+        double fileSizeMb = ncmFile.length() / 1024.0 / 1024.0;
+        holder.tvFileSize.setText(String.format(Locale.getDefault(), "%.2f MB", fileSizeMb));
+
+        // 重置控件状态
+        holder.btnConvert.setVisibility(View.VISIBLE);
+        holder.progressConvert.setVisibility(View.GONE);
+        holder.tvProgress.setVisibility(View.GONE);
 
         // 转换按钮点击事件
         holder.btnConvert.setOnClickListener(v -> {
-            if (listener != null) listener.onConvertStart();
-            // 子线程执行解密转换，避免ANR
-            new Thread(() -> {
+            // 开始转换，更新UI
+            holder.btnConvert.setVisibility(View.GONE);
+            holder.progressConvert.setVisibility(View.VISIBLE);
+            holder.tvProgress.setVisibility(View.VISIBLE);
+            holder.progressConvert.setProgress(0);
+            holder.tvProgress.setText("0%");
+
+            // 提交转换任务到线程池，彻底避免主线程ANR闪退
+            convertExecutor.submit(() -> {
                 try {
-                    // 1. 读取NCM文件
-                    byte[] ncmData = FileUtils.readFileToBytes(ncmFile);
-                    NcmDecryptor decryptor = new NcmDecryptor(ncmData);
-
-                    // 2. 解密校验（对齐ncmc标准）
-                    if (!decryptor.decrypt()) {
-                        if (listener != null) {
-                            listener.onConvertFinish(false, "解密失败，不是有效的NCM文件");
+                    // 初始化解密核心类
+                    NcmDecryptCore decryptCore = new NcmDecryptCore(ncmFile, savePath);
+                    
+                    // 解密转换，带进度回调
+                    decryptCore.startDecrypt(new OnConvertListener() {
+                        @Override
+                        public void onStart() {
+                            // 主线程更新UI
+                            ((android.app.Activity) context).runOnUiThread(() -> {
+                                holder.progressConvert.setProgress(0);
+                                holder.tvProgress.setText("0%");
+                            });
                         }
-                        return;
-                    }
 
-                    // 3. 生成输出文件
-                    String outputFileName = FileUtils.replaceFileExtension(ncmFile.getName(), decryptor.getAudioFormat());
-                    File outputFile = new File(FileUtils.getOutputDir(context), outputFileName);
-                    // 写入无损音频流
-                    FileUtils.writeBytesToFile(decryptor.getAudioRawData(), outputFile);
+                        @Override
+                        public void onProgress(int progress) {
+                            // 主线程更新进度
+                            ((android.app.Activity) context).runOnUiThread(() -> {
+                                holder.progressConvert.setProgress(progress);
+                                holder.tvProgress.setText(progress + "%");
+                            });
+                        }
 
-                    // 4. 写入歌曲元数据
-                    MetadataHandler.writeMetadata(outputFile, decryptor.getMetadata());
+                        @Override
+                        public void onSuccess(File outputFile) {
+                            // 主线程更新成功状态
+                            ((android.app.Activity) context).runOnUiThread(() -> {
+                                holder.btnConvert.setVisibility(View.VISIBLE);
+                                holder.btnConvert.setText("转换完成");
+                                holder.btnConvert.setBackgroundColor(0xFF4CAF50);
+                                holder.btnConvert.setEnabled(false);
+                                holder.progressConvert.setVisibility(View.GONE);
+                                holder.tvProgress.setVisibility(View.GONE);
+                                android.widget.Toast.makeText(context, "转换成功！文件已保存到：" + outputFile.getAbsolutePath(), android.widget.Toast.LENGTH_LONG).show();
+                            });
+                        }
 
-                    // 5. 自动下载LRC歌词（开关控制）
-                    if (SPUtils.getInstance(context).isLrcEnable()) {
-                        String lrcFileName = FileUtils.replaceFileExtension(ncmFile.getName(), "lrc");
-                        File lrcFile = new File(FileUtils.getOutputDir(context), lrcFileName);
-                        LyricDownloader.downloadAndSaveLrc(decryptor.getSongId(), lrcFile);
-                    }
-
-                    // 6. 回调成功结果
-                    if (listener != null) {
-                        listener.onConvertFinish(true, "转换成功！文件已保存到：" + outputFile.getAbsolutePath());
-                    }
+                        @Override
+                        public void onFail(String errorMsg) {
+                            // 主线程更新失败状态
+                            ((android.app.Activity) context).runOnUiThread(() -> {
+                                holder.btnConvert.setVisibility(View.VISIBLE);
+                                holder.btnConvert.setText("重试");
+                                holder.progressConvert.setVisibility(View.GONE);
+                                holder.tvProgress.setVisibility(View.GONE);
+                                android.widget.Toast.makeText(context, "转换失败：" + errorMsg, android.widget.Toast.LENGTH_LONG).show();
+                            });
+                        }
+                    });
 
                 } catch (Exception e) {
-                    // 回调失败结果
-                    if (listener != null) {
-                        listener.onConvertFinish(false, "转换失败：" + e.getMessage());
-                    }
-                    e.printStackTrace();
+                    // 全局异常捕获，彻底避免闪退
+                    ((android.app.Activity) context).runOnUiThread(() -> {
+                        holder.btnConvert.setVisibility(View.VISIBLE);
+                        holder.btnConvert.setText("重试");
+                        holder.progressConvert.setVisibility(View.GONE);
+                        holder.tvProgress.setVisibility(View.GONE);
+                        android.widget.Toast.makeText(context, "转换异常：" + e.getMessage(), android.widget.Toast.LENGTH_LONG).show();
+                    });
                 }
-            }).start();
+            });
         });
     }
 
     @Override
     public int getItemCount() {
-        return ncmFileList.size();
+        return fileList.size();
     }
 
-    // ViewHolder内部类
+    // 释放线程池，避免内存泄漏
+    public void release() {
+        if (!convertExecutor.isShutdown()) {
+            convertExecutor.shutdownNow();
+        }
+    }
+
     public static class ViewHolder extends RecyclerView.ViewHolder {
-        TextView tvFileName, tvFileSize;
+        TextView tvFileName, tvFileSize, tvProgress;
         Button btnConvert;
+        ProgressBar progressConvert;
 
         public ViewHolder(@NonNull View itemView) {
             super(itemView);
             tvFileName = itemView.findViewById(R.id.tv_file_name);
             tvFileSize = itemView.findViewById(R.id.tv_file_size);
+            tvProgress = itemView.findViewById(R.id.tv_progress);
             btnConvert = itemView.findViewById(R.id.btn_convert);
+            progressConvert = itemView.findViewById(R.id.progress_convert);
         }
     }
 }

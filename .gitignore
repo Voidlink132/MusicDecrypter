@@ -1,21 +1,32 @@
-# 安卓编译缓存目录
-build/
-compiled_res/
-# 生成的APK文件
+# 编译生成的文件
+/build/
+/app/build/
+/captures/
+.externalNativeBuild
+.cxx/
 *.apk
-# 安卓dex文件
-classes.dex
-# Termux临时文件
-*.swp
-*~
-# 日志文件
+*.ap_
+*.dex
+*.class
+
+# Gradle缓存
+.gradle/
+gradle-app.setting
+!gradle-wrapper.jar
+.gradletasknamecache
+
+# IDE配置
+.idea/
+*.iml
+*.ipr
+*.iws
+local.properties
+.DS_Store
+
+# 签名文件
+*.jks
+*.keystore
+
+# 临时文件
 *.log
-
-# Ignore Gradle project-specific cache directory
-.gradle
-
-# Ignore Gradle build output directory
-build
-
-# Ignore Kotlin plugin data
-.kotlin
+*.tmp

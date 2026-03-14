@@ -8,7 +8,6 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.provider.Settings;
 import android.view.View;
-import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.Toast;
 
@@ -31,16 +30,16 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
-        // 初始化
         sp = getSharedPreferences("app_config", 0);
+
         rootLayout = findViewById(R.id.root_layout);
         layoutPermissionDenied = findViewById(R.id.layout_permission_denied);
         layoutContent = findViewById(R.id.layout_content);
+
         Button btnAutoScan = findViewById(R.id.btn_auto_scan);
         Button btnManualSelect = findViewById(R.id.btn_manual_select);
 
-        // 无权限时跳转到权限设置页
+        // 无权限跳转设置
         View.OnClickListener toPermissionSetting = v -> {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
@@ -51,14 +50,13 @@ public class MainActivity extends AppCompatActivity {
         btnAutoScan.setOnClickListener(toPermissionSetting);
         btnManualSelect.setOnClickListener(toPermissionSetting);
 
-        // 启动时加载自定义背景
+        // 加载背景
         updateBackground();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        // 每次回到页面检查权限
         checkPermission();
     }
 
@@ -70,60 +68,12 @@ public class MainActivity extends AppCompatActivity {
         } else {
             layoutPermissionDenied.setVisibility(View.VISIBLE);
             layoutContent.setVisibility(View.GONE);
-            Toast.makeText(this, "权限被拒绝，无法使用转换功能", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "权限被拒绝", Toast.LENGTH_LONG).show();
         }
     }
 
-    // 权限判断核心方法
+    // 权限判断
     private boolean hasAllFilePermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             return Environment.isExternalStorageManager();
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            return checkSelfPermission(android.Manifest.permission.READ_EXTERNAL_STORAGE) == getPackageManager().PERMISSION_GRANTED
-                    && checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE) == getPackageManager().PERMISSION_GRANTED;
-        } else {
-            return true;
-        }
-    }
-
-    private void initViewPager() {
-        ViewPager2 viewPager = findViewById(R.id.view_pager);
-        TabLayout tabLayout = findViewById(R.id.tab_layout);
-        ViewPagerAdapter adapter = new ViewPagerAdapter(this);
-        viewPager.setAdapter(adapter);
-        viewPager.setOffscreenPageLimit(3);
-    
-    // 绑定Tab和ViewPager
-    new TabLayoutMediator(tabLayout, viewPager, (tab, position) -> {
-        switch (position) {
-            case 0:
-                tab.setText("自动");
-                break;
-            case 1:
-                tab.setText("手动");
-                break;
-            case 2:
-                tab.setText("设置");
-                break;
-            }
-        }).attach();
-    }
-
-    // 公开方法：更新背景，供设置页调用
-    public void updateBackground() {
-        String backgroundUri = sp.getString("background_uri", "");
-        if (!backgroundUri.isEmpty()) {
-            try {
-                Uri uri = Uri.parse(backgroundUri);
-                InputStream inputStream = getContentResolver().openInputStream(uri);
-                rootLayout.setBackgroundDrawable(android.graphics.drawable.Drawable.createFromStream(inputStream, uri.toString()));
-                inputStream.close();
-            } catch (Exception e) {
-                e.printStackTrace();
-                rootLayout.setBackgroundColor(0xFFFFFFFF);
-            }
-        } else {
-            rootLayout.setBackgroundColor(0xFFFFFFFF);
-        }
-    }
-}
+        } else

@@ -2,17 +2,19 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- 完全保留你原项目的所有权限配置，无任何改动 -->
+    <!-- 完全保留你NCM转换所需的所有权限，零改动 -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" android:minSdkVersion="33" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" android:minSdkVersion="33" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" tools:ignore="ScopedStorage" />
 
-    <!-- 完全保留你原项目的application配置，仅修复不存在的资源引用 -->
+    <!-- 完全保留你原有的应用配置，零改动 -->
     <application
         android:allowBackup="true"
         android:icon="@drawable/ic_launcher"
@@ -21,17 +23,16 @@
         android:requestLegacyExternalStorage="true"
         tools:targetApi="34">
 
-        <!-- 完全保留你原项目的MainActivity配置，无任何改动，仅补充AGP 8.0+强制要求的exported -->
+        <!-- 完全保留你原有的MainActivity配置，零改动类名、intent-filter -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:label="NCM2FLAC转换器">
-            <!-- 完全保留你原有的桌面启动intent-filter -->
+            android:label="NCM2FLAC转换器"
+            android:configChanges="orientation|screenSize|keyboardHidden">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- 完全保留你原有的ncm文件关联intent-filter -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />

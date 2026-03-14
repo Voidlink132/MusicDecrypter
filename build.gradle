@@ -1,11 +1,4 @@
-// 项目根目录 build.gradle
+// Top-level build file where you can add configuration options common to all sub-projects/modules.
 plugins {
-    // AGP 最新稳定版，已验证与Gradle版本完全兼容
-    id 'com.android.application' version '8.5.0' apply false
-    id 'com.android.library' version '8.5.0' apply false
-}
-
-// 全局任务配置
-tasks.register('clean', Delete) {
-    delete rootProject.buildDir
+    id 'com.android.application' version '8.4.0' apply false
 }

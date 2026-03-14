@@ -9,6 +9,8 @@
     <!-- 歌词下载功能必须的网络权限 -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- 读取媒体库图片，用于自定义背景 -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" android:maxSdkVersion="33" />
 
     <application
     android:allowBackup="true"

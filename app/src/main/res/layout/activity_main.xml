@@ -2,69 +2,109 @@
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/root_layout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="#FFFFFF"
     tools:context=".MainActivity">
 
-    <TextView
-        android:id="@+id/tv_title"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/app_name"
-        android:textSize="24sp"
-        android:textStyle="bold"
-        android:layout_marginTop="20dp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+    <!-- 无权限时显示的布局 -->
+    <LinearLayout
+        android:id="@+id/layout_permission_denied"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center_horizontal"
+        android:paddingTop="80dp"
+        android:paddingHorizontal="20dp"
+        android:visibility="visible">
 
-    <Button
-        android:id="@+id/btn_scan"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:text="@string/btn_scan_ncm"
-        android:layout_marginStart="20dp"
-        android:layout_marginEnd="20dp"
-        android:layout_marginTop="20dp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/tv_title" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="NCM转换器"
+            android:textSize="36sp"
+            android:textColor="#666666"
+            android:layout_marginBottom="60dp"/>
 
-    <Button
-        android:id="@+id/btn_select_file"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:text="@string/btn_select_file"
-        android:layout_marginStart="20dp"
-        android:layout_marginEnd="20dp"
-        android:layout_marginTop="10dp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/btn_scan" />
+        <Button
+            android:id="@+id/btn_auto_scan"
+            android:layout_width="match_parent"
+            android:layout_height="50dp"
+            android:text="自动扫描NCM文件"
+            android:textSize="18sp"
+            android:background="#E0E0E0"
+            android:textColor="#333333"
+            android:layout_marginBottom="20dp"/>
 
-    <TextView
-        android:id="@+id/tv_tip"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/tip_permission"
-        android:textSize="14sp"
-        android:textColor="@color/red"
-        android:layout_marginTop="10dp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/btn_select_file" />
+        <Button
+            android:id="@+id/btn_manual_select"
+            android:layout_width="match_parent"
+            android:layout_height="50dp"
+            android:text="手动选择NCM文件"
+            android:textSize="18sp"
+            android:background="#E0E0E0"
+            android:textColor="#333333"
+            android:layout_marginBottom="40dp"/>
 
-    <ListView
-        android:id="@+id/lv_ncm_files"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:layout_marginStart="20dp"
-        android:layout_marginEnd="20dp"
-        android:layout_marginTop="20dp"
-        android:layout_marginBottom="20dp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/tv_tip" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="请先开启所有文件访问权限，否则无法读取和转换文件"
+            android:textColor="#FF0000"
+            android:textSize="16sp"
+            android:gravity="center"/>
+
+    </LinearLayout>
+
+    <!-- 有权限时显示的内容布局 -->
+    <LinearLayout
+        android:id="@+id/layout_content"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <androidx.viewpager2.widget.ViewPager2
+            android:id="@+id/view_pager"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"/>
+
+        <!-- 底部Tab栏，带图标，3个Tab：自动、手动、设置 -->
+        <com.google.android.material.tabs.TabLayout
+            android:id="@+id/tab_layout"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:background="#F8F8F8"
+            app:tabIndicatorHeight="0dp"
+            app:tabSelectedTextColor="#FF80AB"
+            app:tabTextColor="#666666"
+            app:tabTextAppearance="@style/TabTextStyle"
+            app:tabIconTint="@color/tab_icon_selector"
+            app:tabGravity="fill"
+            app:tabMode="fixed">
+
+            <com.google.android.material.tabs.TabItem
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="自动"
+                android:icon="@mipmap/ic_tab_auto"/>
+
+            <com.google.android.material.tabs.TabItem
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="手动"
+                android:icon="@mipmap/ic_tab_manual"/>
+
+            <com.google.android.material.tabs.TabItem
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="设置"
+                android:icon="@mipmap/ic_tab_setting"/>
+
+        </com.google.android.material.tabs.TabLayout>
+
+    </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

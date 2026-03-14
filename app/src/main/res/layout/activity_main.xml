@@ -82,8 +82,7 @@
             android:id="@+id/view_pager"
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            android:layout_weight="1"
-            android:userScrollEnabled="false"/>
+            android:layout_weight="1"/>
 
         <!-- 底部Tab栏，带drawable目录的图标，图标+文字同时显示 -->
         <com.google.android.material.tabs.TabLayout

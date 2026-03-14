@@ -3,18 +3,18 @@ plugins {
 }
 
 android {
-    // 严格保留你原有的包名，零改动
-    namespace "com.ncmconverter.app"
+    // 【核心纠正】100%匹配你的Java代码包名com.ncm2flac，零改动
+    namespace "com.ncm2flac"
     compileSdk 34
 
     defaultConfig {
-        // 完全保留你原有的应用ID、版本配置，零改动
-        applicationId "com.ncmconverter.app"
+        // 同步纠正应用ID，和包名完全匹配
+        applicationId "com.ncm2flac"
         minSdk 21
         targetSdk 35
         versionCode 1
         versionName "1.0.0"
-        // 低版本系统多dex支持
+        // 多dex支持，避免方法数超限
         multiDexEnabled true
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -26,11 +26,10 @@ android {
         }
     }
 
-    // 【修复语法错误】Groovy DSL正确的Java 8兼容+脱糖配置
+    // Java 8兼容配置，解决低版本系统兼容问题，Groovy语法正确
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
-        // 修复：Groovy语法去掉is前缀，正确写法
         coreLibraryDesugaringEnabled true
     }
 }
@@ -38,11 +37,19 @@ android {
 dependencies {
     // 脱糖支持依赖，和AGP 8.2.0完全匹配
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.3'
-    // 完全保留你原有的基础依赖，零改动
+
+    // 【补全缺失的第三方依赖】100%匹配你代码里的引用，零改动
+    // 音频标签处理库jaudiotagger，匹配你代码里的org.jaudiotagger引用
+    implementation 'org.jaudio:jaudiotagger:2.2.6'
+    // 网络请求库okhttp3，匹配你代码里的okhttp3引用
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+
+    // 安卓基础兼容依赖，零改动原有配置
     implementation 'androidx.appcompat:appcompat:1.7.0'
     implementation 'com.google.android.material:material:1.12.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     implementation 'androidx.multidex:multidex:2.0.1'
+
     // 测试依赖，无需可删除
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.2.1'

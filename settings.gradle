@@ -1,23 +1,27 @@
 pluginManagement {
     repositories {
+        // 阿里云镜像优先，解决国内访问限制
+        maven { url 'https://maven.aliyun.com/repository/google' }
+        maven { url 'https://maven.aliyun.com/repository/central' }
+        maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
+        // 官方仓库兜底
         google()
         mavenCentral()
         gradlePluginPortal()
-        // 国内加速可选，无需可删除
-        maven { url 'https://maven.aliyun.com/repository/google' }
-        maven { url 'https://maven.aliyun.com/repository/central' }
     }
 }
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
-        google()
-        mavenCentral()
-        // 国内加速可选，无需可删除
+        // 阿里云镜像优先
         maven { url 'https://maven.aliyun.com/repository/google' }
         maven { url 'https://maven.aliyun.com/repository/central' }
+        maven { url 'https://maven.aliyun.com/repository/public' }
+        maven { url 'https://maven.aliyun.com/repository/jcenter' }
+        // 官方仓库兜底
+        google()
+        mavenCentral()
     }
 }
-rootProject.name = "NCM2FLAC-Converter"
-// 必须声明app模块，否则Gradle找不到项目入口
+rootProject.name = "NCM音频转换器"
 include ':app'

@@ -1,19 +1,8 @@
-<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">NCM2FLAC</string>
-    <string name="tab_auto">自动转换</string>
-    <string name="tab_manual">手动选择</string>
-    <string name="tab_settings">设置</string>
-    <string name="switch_lrc">自动下载LRC歌词</string>
-    <string name="permission_check">全文件访问权限</string>
-    <string name="permission_granted">已授权</string>
-    <string name="permission_denied">未授权</string>
-    <string name="permission_go_to_set">去设置</string>
-    <string name="version_name">版本号</string>
-    <string name="update_log">更新日志</string>
-    <string name="update_log_content">1.1.0 更新内容：\n1. 新增自动扫描网易云音乐下载目录功能\n2. 新增LRC歌词自动下载功能\n3. 新增底部导航栏，拆分自动/手动/设置三个页面\n4. 修复NCM文件解密逻辑，对齐ncmc标准\n5. 适配Android15+全文件访问权限\n6. 优化批量转换体验</string>
-    <string name="scan_ncm">扫描NCM文件</string>
-    <string name="no_ncm_file">未找到NCM文件</string>
-    <string name="convert">转换</string>
-    <string name="select_file">选择NCM文件</string>
+    <string name="app_name">NCM2FLAC转换器</string>
+    <string name="btn_scan_ncm">自动扫描NCM文件</string>
+    <string name="btn_select_file">手动选择NCM文件</string>
+    <string name="tip_permission">请先开启所有文件访问权限，否则无法读取和转换文件</string>
+    <string name="convert_success">转换成功！文件已保存到/NCM2FLAC/目录</string>
+    <string name="convert_failed">转换失败，请检查文件是否完整</string>
 </resources>

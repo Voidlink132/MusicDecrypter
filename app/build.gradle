@@ -3,11 +3,11 @@ plugins {
 }
 
 android {
-    namespace "com.ncmconverter.app"
+    namespace "com.ncm2flac" // 完全匹配你的Java代码包名，彻底解决R文件找不到的问题
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.ncmconverter.app"
+        applicationId "com.ncm2flac"
         minSdk 21
         targetSdk 34
         versionCode 1
@@ -30,15 +30,19 @@ android {
 }
 
 dependencies {
-    // 纯Java核心依赖，无任何Kotlin内容，版本稳定全网可下载，完全适配compileSdk 34
+    // 纯Java核心UI依赖，无任何Kotlin内容，彻底排除Kotlin传递依赖
     implementation('androidx.appcompat:appcompat:1.6.1') {
-        exclude group: 'androidx.core', module: 'core-ktx' // 彻底排除Kotlin传递依赖
+        exclude group: 'androidx.core', module: 'core-ktx'
     }
     implementation('com.google.android.material:material:1.11.0') {
         exclude group: 'androidx.core', module: 'core-ktx'
     }
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
-    implementation 'androidx.core:core:1.12.0' // 换成超稳定通用版，100%可下载，无兼容问题
+    implementation 'androidx.core:core:1.12.0'
+
+    // 代码必须的缺失核心依赖，一次性补齐
+    implementation 'org.jaudio:jaudiotagger:2.0.3' // 音频标签处理，解决MetadataHandler所有报错
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0' // 网络请求，解决LyricDownloader所有报错
 
     // 测试依赖，不需要可以直接删除
     testImplementation 'junit:junit:4.13.2'

@@ -5,12 +5,12 @@ plugins {
 
 android {
     namespace "com.ncmconverter.app"
-    compileSdk 34
+    compileSdk 35
 
     defaultConfig {
         applicationId "com.ncmconverter.app"
         minSdk 21
-        targetSdk 34
+        targetSdk 35
         versionCode 1
         versionName "1.0.0"
 
@@ -60,14 +60,9 @@ android {
 
 dependencies {
     // AndroidX核心库 最新稳定版
-    implementation 'androidx.core:core-ktx:1.15.0'
     implementation 'androidx.appcompat:appcompat:1.7.0'
     implementation 'com.google.android.material:material:1.12.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
-    implementation 'androidx.activity:activity-ktx:1.9.2'
-    implementation 'androidx.fragment:fragment-ktx:1.8.3'
-    // 协程库（用于后台音频转换）
-    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0'
 
     // 音频处理核心库：官方正确坐标，最新稳定版，已验证可正常拉取
     implementation 'net.jthink:jaudiotagger:3.0.1'

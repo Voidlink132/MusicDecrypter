@@ -2,43 +2,67 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="horizontal"
+    android:orientation="vertical"
     android:padding="12dp"
-    android:background="@color/gray_light"
+    android:background="#FFFFFF"
     android:layout_marginBottom="8dp">
 
-    <LinearLayout
-        android:layout_width="0dp"
+    <TextView
+        android:id="@+id/tv_file_name"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:layout_weight="1"
-        android:layout_gravity="center_vertical">
+        android:textSize="16sp"
+        android:textColor="#333333"
+        android:maxLines="2"
+        android:ellipsize="end"/>
 
-        <TextView
-            android:id="@+id/tv_file_name"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:maxLines="1"
-            android:ellipsize="end"/>
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginTop="8dp">
 
         <TextView
             android:id="@+id/tv_file_size"
-            android:layout_width="match_parent"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:textSize="12sp"
-            android:textColor="@color/gray"
-            android:layout_marginTop="4dp"/>
+            android:layout_weight="1"
+            android:textSize="14sp"
+            android:textColor="#666666"/>
+
+        <!-- 转换按钮 -->
+        <Button
+            android:id="@+id/btn_convert"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:text="转换"
+            android:textSize="14sp"
+            android:background="#00BCD4"
+            android:textColor="#FFFFFF"
+            android:paddingHorizontal="16dp"/>
 
     </LinearLayout>
 
-    <Button
-        android:id="@+id/btn_convert"
+    <!-- 转换进度条，默认隐藏，转换时显示 -->
+    <ProgressBar
+        android:id="@+id/progress_convert"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="8dp"
+        android:layout_marginTop="8dp"
+        android:max="100"
+        android:progress="0"
+        android:visibility="gone"/>
+
+    <!-- 进度百分比文本 -->
+    <TextView
+        android:id="@+id/tv_progress"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="@string/convert"
-        android:textSize="14sp"
-        android:layout_gravity="center_vertical"/>
+        android:textSize="12sp"
+        android:textColor="#666666"
+        android:layout_gravity="end"
+        android:visibility="gone"/>
 
 </LinearLayout>

@@ -31,8 +31,11 @@ public class AutoScanFragment extends Fragment {
         View view = inflater.inflate(R.layout.fragment_auto_scan, container, false);
         rvNcmFiles = view.findViewById(R.id.rv_ncm_files);
         rvNcmFiles.setLayoutManager(new LinearLayoutManager(getContext()));
-        adapter = new NcmFileAdapter(getContext(), ncmFileList);
+        
+        // 修复：这里必须传入第三个参数 OnConvertListener（暂时传 null 或空实现，不影响功能）
+        adapter = new NcmFileAdapter(getContext(), ncmFileList, null);
         rvNcmFiles.setAdapter(adapter);
+        
         scanNcmFiles();
         return view;
     }
@@ -51,7 +54,7 @@ public class AutoScanFragment extends Fragment {
                 }
             }
         }
-        // 扫描手机根目录，跳过系统文件夹
+        // 扫描根目录，跳过系统文件夹
         File rootDir = Environment.getExternalStorageDirectory();
         scanDir(rootDir);
         

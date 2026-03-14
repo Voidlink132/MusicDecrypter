@@ -92,22 +92,19 @@ public class MainActivity extends AppCompatActivity {
         ViewPagerAdapter adapter = new ViewPagerAdapter(this);
         viewPager.setAdapter(adapter);
         viewPager.setOffscreenPageLimit(3);
-
-        // 绑定Tab和ViewPager
-        new TabLayoutMediator(tabLayout, viewPager, (tab, position) -> {
-            switch (position) {
-                case 0:
-                    tab.setText("自动");
-                    tab.setIcon(R.mipmap.ic_tab_auto);
-                    break;
-                case 1:
-                    tab.setText("手动");
-                    tab.setIcon(R.mipmap.ic_tab_manual);
-                    break;
-                case 2:
-                    tab.setText("设置");
-                    tab.setIcon(R.mipmap.ic_tab_setting);
-                    break;
+    
+    // 绑定Tab和ViewPager
+    new TabLayoutMediator(tabLayout, viewPager, (tab, position) -> {
+        switch (position) {
+            case 0:
+                tab.setText("自动");
+                break;
+            case 1:
+                tab.setText("手动");
+                break;
+            case 2:
+                tab.setText("设置");
+                break;
             }
         }).attach();
     }

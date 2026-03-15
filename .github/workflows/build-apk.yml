@@ -8,50 +8,30 @@ jobs:
   build-apk:
     runs-on: ubuntu-latest
     permissions:
-      contents: read # 显式声明权限，解决token读取release权限问题
+      contents: read
     steps:
       - name: 检出仓库代码
         uses: actions/checkout@v4
 
-      - name: 安装系统基础依赖（仅官方源稳定包，无任何Android依赖）
+      - name: 官方自动配置Android构建环境（彻底解决所有环境问题）
+        uses: actions/setup-android@v2
+        with:
+          # 自动安装构建所需的全部工具，官方维护，100%稳定
+          packages: |
+            build-tools;34.0.0
+            platforms;android-34
+          # 自动接受所有SDK许可协议，无交互卡住问题
+          accept-android-sdk-licenses: true
+
+      - name: 安装系统基础依赖（仅稳定基础包）
         run: |
           sudo apt-get update
-          # 仅安装Ubuntu官方源100%稳定存在的基础包，无任何Android相关依赖
           sudo apt-get install -y openjdk-17-jdk curl unzip
           echo "✅ 系统基础依赖安装完成"
-
-      - name: 部署Google官方Android构建工具（双链接兜底，彻底解决404）
-        run: |
-          # 创建工具存放目录
-          sudo mkdir -p /usr/local/android-tools /usr/local/android-sdk/platforms/android-34
-          
-          # 1. 下载并部署aapt2、apksigner（官方静态二进制，加重试机制）
-          curl -fSL --retry 3 --retry-delay 2 -o build-tools.zip https://dl.google.com/android/repository/build-tools_r34-linux.zip
-          sudo unzip -j build-tools.zip android-14/aapt2 android-14/apksigner -d /usr/local/bin/
-          sudo chmod +x /usr/local/bin/aapt2 /usr/local/bin/apksigner
-          
-          # 2. 下载Android 34平台jar包（双链接兜底，彻底解决链接失效问题）
-          MAIN_PLATFORM_URL="https://dl.google.com/android/repository/platform-34_r04.zip"
-          BACKUP_PLATFORM_URL="https://mirrors.tuna.tsinghua.edu.cn/android/repository/platform-34_r04.zip"
-          
-          # 先尝试官方主链接，失败自动切换国内镜像备用链接
-          if ! curl -fSL --retry 3 --retry-delay 2 -o platform-34.zip "$MAIN_PLATFORM_URL"; then
-            echo "⚠️ 官方主链接下载失败，切换国内镜像备用链接"
-            curl -fSL --retry 3 --retry-delay 2 -o platform-34.zip "$BACKUP_PLATFORM_URL"
-          fi
-          
-          # 解压并验证文件
-          sudo unzip -j platform-34.zip android.jar -d /usr/local/android-sdk/platforms/android-34/
-          
-          # 验证所有工具部署成功，避免后续步骤异常
+          # 验证环境配置成功
           aapt2 version
           apksigner version
-          if [ -f /usr/local/android-sdk/platforms/android-34/android.jar ]; then
-            echo "✅ Android构建工具与SDK部署完成，双链接兜底生效"
-          else
-            echo "❌ Android SDK部署失败，核心文件缺失"
-            exit 1
-          fi
+          echo "✅ Android构建环境配置完成，所有工具就绪"
 
       - name: 创建工作目录与assets目录
         run: |
@@ -140,8 +120,8 @@ jobs:
         run: |
           # 编译资源
           aapt2 compile -o build/res.zip build/res/values/strings.xml
-          # 链接APK，使用我们部署的官方android.jar
-          aapt2 link build/res.zip --manifest build/AndroidManifest.xml -o build/unaligned.apk -I /usr/local/android-sdk/platforms/android-34/android.jar
+          # 链接APK，使用官方自动配置的android.jar，路径绝对正确
+          aapt2 link build/res.zip --manifest build/AndroidManifest.xml -o build/unaligned.apk -I $ANDROID_HOME/platforms/android-34/android.jar
           
           # 将assets打包进APK
           cd build

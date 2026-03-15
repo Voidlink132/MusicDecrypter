@@ -1,10 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.ncm2flac"
     android:versionCode="1"
     android:versionName="1.1.0">
 
-    <!-- 适配Android 15+ 所有文件访问权限 -->
+    <!-- 适配Android 15+ 所有文件访问权限，完全保留你原有权限配置 -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
@@ -16,10 +15,13 @@
 
     <application
         android:label="NCM2FLAC转换器"
-        android:icon="@mipmap/ic_launcher"
+        android:icon="@drawable/ic_launcher"
         android:allowBackup="true"
         android:supportsRtl="true">
-        <activity android:name="com.ncm2flac.MainActivity">
+        <activity 
+            android:name="com.ncm2flac.MainActivity"
+            android:exported="true"
+            android:label="@string/com.ncm2flac">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

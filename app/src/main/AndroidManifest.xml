@@ -17,7 +17,8 @@
         android:label="NCM2FLAC转换器"
         android:icon="@drawable/ic_launcher"
         android:allowBackup="true"
-        android:supportsRtl="true">
+        android:supportsRtl="true"
+        android:theme="@style/Theme.NCM2FLACConverter">
         <activity 
             android:name="com.ncm2flac.MainActivity"
             android:exported="true"

@@ -1,4 +1,4 @@
-name: 自动打包NCM2flac APK
+name: 自动打包NCM2FLAC APK
 on:
   push:
     branches: [ main, master ]
@@ -13,131 +13,33 @@ jobs:
       - name: 检出仓库代码
         uses: actions/checkout@v4
 
-      - name: 官方自动配置Android构建环境（彻底解决所有环境问题）
-        uses: actions/setup-android@v2
+      - name: 配置JDK 17（GitHub官方原生action，符合项目要求）
+        uses: actions/setup-java@v4
         with:
-          # 自动安装构建所需的全部工具，官方维护，100%稳定
-          packages: |
-            build-tools;34.0.0
-            platforms;android-34
-          # 自动接受所有SDK许可协议，无交互卡住问题
-          accept-android-sdk-licenses: true
+          java-version: '17'
+          distribution: 'temurin'
 
-      - name: 安装系统基础依赖（仅稳定基础包）
+      - name: 配置Gradle执行权限
         run: |
-          sudo apt-get update
-          sudo apt-get install -y openjdk-17-jdk curl unzip
-          echo "✅ 系统基础依赖安装完成"
-          # 验证环境配置成功
-          aapt2 version
-          apksigner version
-          echo "✅ Android构建环境配置完成，所有工具就绪"
+          chmod +x ./gradlew
+          echo "✅ Gradle执行权限配置完成"
 
-      - name: 创建工作目录与assets目录
+      - name: 官方标准构建APK（使用项目原生Gradle流程，自动处理所有依赖）
         run: |
-          mkdir -p build/assets build/lib/arm64-v8a build/res/values build/META-INF
-          
-      - name: 获取ncmc最新版二进制（双层兜底，API失败不中断构建）
-        id: get-ncmc
-        run: |
-          # 备用稳定版链接，API完全失败时兜底
-          FALLBACK_URL="https://github.com/taurusxin/ncmc/releases/download/v1.2.1/ncmc-linux-arm64.zip"
-          FALLBACK_VERSION="1.2.1"
-          
-          # 第一层：调用GitHub API，加--fail参数，失败直接走兜底
-          if RELEASE_DATA=$(gh api --fail repos/taurusxin/ncmc/releases/latest 2>/dev/null); then
-            # jq加?安全访问符，字段缺失不报错，仅返回空值
-            DOWNLOAD_URL=$(echo "$RELEASE_DATA" | jq -r '.assets[]? | select(.name | contains("linux-arm64")) | .browser_download_url')
-            VERSION=$(echo "$RELEASE_DATA" | jq -r '.tag_name? | ltrimstr("v")')
-            
-            # 第二层：API成功但匹配不到链接，走备用稳定版
-            if [ -z "$DOWNLOAD_URL" ] || [ "$DOWNLOAD_URL" = "null" ]; then
-              echo "⚠️ 未匹配到arm64下载链接，使用备用稳定版v$FALLBACK_VERSION"
-              DOWNLOAD_URL="$FALLBACK_URL"
-              VERSION="$FALLBACK_VERSION"
-            fi
-          else
-            # API调用完全失败（限流/权限/网络问题），直接走备用稳定版
-            echo "⚠️ GitHub API调用失败，使用备用稳定版v$FALLBACK_VERSION"
-            DOWNLOAD_URL="$FALLBACK_URL"
-            VERSION="$FALLBACK_VERSION"
-          fi
-          
-          # 输出变量给后续步骤使用
-          echo "download_url=$DOWNLOAD_URL" >> $GITHUB_OUTPUT
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "✅ 最终使用ncmc版本: v$VERSION"
+          # 自动接受Android SDK许可协议，无交互卡住问题
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null 2>&1 || true
+          # 同时构建Debug和Release包，和本地Android Studio构建结果完全一致
+          ./gradlew assembleDebug assembleRelease
+          echo "✅ APK构建完成"
 
-      - name: 下载并解压ncmc二进制（下载校验，解决0b文件问题）
-        run: |
-          # 用curl零兼容问题下载，失败直接退出
-          curl -fSL -o build/ncmc-linux-arm64.zip ${{ steps.get-ncmc.outputs.download_url }}
-          
-          # 校验文件是否下载成功
-          if [ ! -s build/ncmc-linux-arm64.zip ]; then
-            echo "❌ 下载失败，文件为空"
-            exit 1
-          fi
-          
-          # 解压并放置到正确位置
-          unzip build/ncmc-linux-arm64.zip -d build/
-          mv build/ncmc build/assets/ncmc
-          chmod +x build/assets/ncmc
-          echo "✅ ncmc二进制准备完成"
-
-      - name: 生成APK基础配置文件（固定包名com.ncm2flac）
-        run: |
-          # 生成AndroidManifest.xml
-          cat > build/AndroidManifest.xml << EOF
-          <?xml version="1.0" encoding="utf-8"?>
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-              package="com.ncm2flac"
-              android:versionCode="1"
-              android:versionName="${{ steps.get-ncmc.outputs.version }}">
-              <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="34"/>
-              <application android:label="NCM2flac" android:icon="@mipmap/ic_launcher">
-                  <activity android:name=".MainActivity" android:exported="true">
-                      <intent-filter>
-                          <action android:name="android.intent.action.MAIN"/>
-                          <category android:name="android.intent.category.LAUNCHER"/>
-                      </intent-filter>
-                  </activity>
-              </application>
-          </manifest>
-          EOF
-          
-          # 生成基础资源文件
-          cat > build/res/values/strings.xml << EOF
-          <?xml version="1.0" encoding="utf-8"?>
-          <resources>
-              <string name="app_name">NCM2flac</string>
-          </resources>
-          EOF
-          
-          echo "✅ APK配置文件生成完成"
-
-      - name: 编译资源与打包APK
-        run: |
-          # 编译资源
-          aapt2 compile -o build/res.zip build/res/values/strings.xml
-          # 链接APK，使用官方自动配置的android.jar，路径绝对正确
-          aapt2 link build/res.zip --manifest build/AndroidManifest.xml -o build/unaligned.apk -I $ANDROID_HOME/platforms/android-34/android.jar
-          
-          # 将assets打包进APK
-          cd build
-          zip -r unaligned.apk assets/
-          cd ..
-          
-          # 生成调试签名密钥
-          keytool -genkey -v -keystore build/debug.keystore -alias androiddebugkey -storepass android -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US" -noprompt
-          
-          # 签名APK
-          apksigner sign --ks build/debug.keystore --ks-pass pass:android --key-pass pass:android --out build/NCM2flac.apk build/unaligned.apk
-          
-          echo "✅ APK打包签名完成"
-
-      - name: 上传打包好的APK
+      - name: 上传Debug安装包
         uses: actions/upload-artifact@v4
         with:
-          name: NCM2flac-v${{ steps.get-ncmc.outputs.version }}-APK
-          path: build/NCM2flac.apk
+          name: NCM2FLAC-Debug-APK
+          path: app/build/outputs/apk/debug/*.apk
+
+      - name: 上传Release安装包
+        uses: actions/upload-artifact@v4
+        with:
+          name: NCM2FLAC-Release-APK
+          path: app/build/outputs/apk/release/*.apk

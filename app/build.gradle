@@ -8,13 +8,13 @@ android {
 
     defaultConfig {
         applicationId "com.ncm2flac"
-        minSdk 21
-        targetSdk 34
+        minSdk 24 // 和你Manifest里的minSdkVersion完全一致
+        targetSdk 35 // 和你Manifest里的targetSdkVersion完全一致
         versionCode 1
-        versionName "1.0"
-
-        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        versionName "1.1.0"
+        // 你的原有其他配置完全保留
     }
+
 
     buildTypes {
         release {

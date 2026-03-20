@@ -1,7 +1,6 @@
-name: 自动打包NCM2FLAC APK
+name: 手动打包NCM2FLAC APK
 on:
-  push:
-    branches: [ main, master ]
+  # 仅保留手动触发入口，彻底移除push自动触发规则
   workflow_dispatch:
 
 jobs:
@@ -13,7 +12,7 @@ jobs:
       - name: 检出仓库代码
         uses: actions/checkout@v4
 
-      - name: 配置JDK 17（GitHub官方原生action，匹配项目Gradle 8.6要求）
+      - name: 配置JDK 17（匹配Gradle 8.6要求）
         uses: actions/setup-java@v4
         with:
           java-version: '17'
@@ -22,12 +21,10 @@ jobs:
       - name: 配置Gradle执行权限
         run: chmod +x ./gradlew
 
-      - name: 官方标准接受Android SDK许可协议（无管道报错）
-        run: |
-          # 官方推荐写法，稳定接受所有SDK许可，彻底解决Broken pipe问题
-          sdkmanager --licenses > /dev/null 2>&1 || true
+      - name: 自动接受Android SDK许可协议
+        run: sdkmanager --licenses > /dev/null 2>&1 || true
 
-      - name: 项目原生Gradle构建（同时输出Debug和Release安装包）
+      - name: Gradle构建APK（同时输出Debug和Release包）
         run: ./gradlew assembleDebug assembleRelease
 
       - name: 上传Debug安装包

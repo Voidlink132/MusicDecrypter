@@ -1,39 +1,29 @@
-name: 手动打包NCM2FLAC APK
+name: Build Android APK
 on:
   workflow_dispatch:
 
 jobs:
-  build-apk:
+  build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     steps:
-      - name: 检出仓库代码
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: 配置JDK 17（匹配Gradle 8.6要求）
+      - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
+          cache: gradle
 
-      - name: 配置Gradle执行权限
+      - name: Grant Execute Permission for Gradlew
         run: chmod +x ./gradlew
 
-      - name: 自动接受Android SDK许可协议
-        run: sdkmanager --licenses > /dev/null 2>&1 || true
+      - name: Build Release APK
+        run: ./gradlew assembleRelease
 
-      - name: Gradle构建APK（同时输出Debug和Release包）
-        run: ./gradlew assembleDebug assembleRelease
-
-      - name: 上传Debug安装包
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: NCM2FLAC-Debug-APK
-          path: app/build/outputs/apk/debug/*.apk
-
-      - name: 上传Release安装包
-        uses: actions/upload-artifact@v4
-        with:
-          name: NCM2FLAC-Release-APK
+          name: MusicDecrypter-Release
           path: app/build/outputs/apk/release/*.apk

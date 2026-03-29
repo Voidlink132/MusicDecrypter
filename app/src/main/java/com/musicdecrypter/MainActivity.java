@@ -14,6 +14,9 @@ import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.musicdecrypter.R;
 import com.musicdecrypter.utils.DecryptBridge;
 
+import android.view.ViewParent;
+import android.view.ViewGroup;
+
 public class MainActivity extends AppCompatActivity {
 
     private WebView decryptWebView;

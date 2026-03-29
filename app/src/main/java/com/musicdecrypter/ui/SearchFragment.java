@@ -5,6 +5,7 @@ import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.TableLayout;
 import android.widget.TableRow;
 import android.widget.TextView;
 
@@ -12,6 +13,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
+import com.musicdecrypter.R;
 import com.musicdecrypter.databinding.FragmentSearchBinding;
 import com.musicdecrypter.utils.FileScannerUtils;
 
@@ -61,7 +63,8 @@ public class SearchFragment extends Fragment {
     }
 
     private void renderFileTable(int tableId, List<String> fileList) {
-        var table = binding.getRoot().findViewById<android.widget.TableLayout>(tableId);
+        // 修复Java语法错误，替换Kotlin泛型写法
+        TableLayout table = binding.getRoot().findViewById(tableId);
         table.removeAllViews();
 
         if (fileList.isEmpty()) {

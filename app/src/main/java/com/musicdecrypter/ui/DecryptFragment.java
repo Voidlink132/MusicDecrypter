@@ -103,8 +103,10 @@ public class DecryptFragment extends Fragment implements DecryptBridge.DecryptCa
         });
     }
 
+        
     private void initWebView() {
         WebSettings webSettings = binding.webview.getSettings();
+        // 核心WebView配置，解决网页解析失败
         webSettings.setJavaScriptEnabled(true);
         webSettings.setDomStorageEnabled(true);
         webSettings.setAllowFileAccess(true);
@@ -115,10 +117,15 @@ public class DecryptFragment extends Fragment implements DecryptBridge.DecryptCa
         webSettings.setDisplayZoomControls(false);
         webSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
         webSettings.setAllowUniversalAccessFromFileURLs(true);
+        webSettings.setJavaScriptCanOpenWindowsAutomatically(true);
+        webSettings.setLoadsImagesAutomatically(true);
+        webSettings.setMediaPlaybackRequiresUserGesture(false);
+        // 设置标准User-Agent，避免被网站拦截
+        webSettings.setUserAgentString("Mozilla/5.0 (Linux; Android 14; SM-G998B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36");
         binding.webview.setWebContentsDebuggingEnabled(true);
-
+    
         binding.webview.addJavascriptInterface(new DecryptBridge(this), "AndroidDecryptBridge");
-
+    
         binding.webview.setWebViewClient(new WebViewClient() {
             @Override
             public void onReceivedError(@NonNull WebView view, @NonNull WebResourceRequest request, @NonNull WebResourceError error) {
@@ -132,19 +139,29 @@ public class DecryptFragment extends Fragment implements DecryptBridge.DecryptCa
             }
 
             @Override
+            public void onReceivedHttpError(@NonNull WebView view, @NonNull WebResourceRequest request, @NonNull WebResourceResponse errorResponse) {
+                super.onReceivedHttpError(view, request, errorResponse);
+                // 处理HTTP错误，避免页面空白
+                if (request.isForMainFrame()) {
+                    binding.tvStatus.setText("网页加载失败，HTTP错误码：" + errorResponse.getStatusCode());
+                }
+            }
+
+            @Override
             public void onReceivedSslError(WebView view, SslErrorHandler handler, android.net.http.SslError error) {
-                handler.proceed(); // 修复SSL证书问题导致的网页加载失败
+                handler.proceed(); // 兼容SSL证书问题，避免加载失败
             }
 
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 // 仅加载目标站点，防止跳转导致的加载失败
-                if (request.getUrl().toString().startsWith(TARGET_URL)) {
+                String url = request.getUrl().toString();
+                if (url.startsWith(TARGET_URL) || url.startsWith("https://unlock-music.dev")) {
                     return false;
                 }
                 return true;
             }
-
+    
             @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
@@ -159,6 +176,7 @@ public class DecryptFragment extends Fragment implements DecryptBridge.DecryptCa
         binding.tvStatus.setText(R.string.status_preparing);
         binding.webview.loadUrl(TARGET_URL);
     }
+
 
     private void openFileChooser() {
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);

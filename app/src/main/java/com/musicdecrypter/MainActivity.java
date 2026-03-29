@@ -148,7 +148,10 @@ public class MainActivity extends AppCompatActivity {
         if (decryptWebView != null) {
             decryptWebView.stopLoading();
             decryptWebView.removeJavascriptInterface("AndroidDecryptBridge");
-            ((ViewGroup) decryptWebView.getParent())?.removeView(decryptWebView);
+            ViewParent parent = decryptWebView.getParent();
+            if (parent != null && parent instanceof ViewGroup) {
+                ((ViewGroup) parent).removeView(decryptWebView);
+            }
             decryptWebView.destroy();
             decryptWebView = null;
         }

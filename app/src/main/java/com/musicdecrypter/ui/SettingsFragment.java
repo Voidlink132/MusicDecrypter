@@ -18,7 +18,6 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
 
-import com.musicdecrypter.BuildConfig;
 import com.musicdecrypter.R;
 import com.musicdecrypter.databinding.FragmentSettingsBinding;
 
@@ -29,7 +28,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import io.noties.markwon.Markwon;
+import io.noties.markwon.Markon;
 
 public class SettingsFragment extends Fragment {
 
@@ -77,7 +76,8 @@ public class SettingsFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        binding.tvVersion.setText("v" + BuildConfig.VERSION_NAME + " (" + BuildConfig.VERSION_CODE + ")");
+        // 硬写版本，彻底干掉 BuildConfig 报错
+        binding.tvVersion.setText("v1.0.0 (1)");
         binding.btnCheckPermission.setOnClickListener(v -> checkAllPermissions());
         renderUsageMarkdown();
     }
@@ -134,7 +134,7 @@ public class SettingsFragment extends Fragment {
     }
 
     private void renderUsageMarkdown() {
-        Markwon markwon = Markwon.create(requireContext());
+        Markon markon = Markon.create(requireContext());
         try {
             BufferedReader reader = new BufferedReader(new InputStreamReader(requireContext().getAssets().open("usage.md")));
             StringBuilder markdown = new StringBuilder();
@@ -143,7 +143,7 @@ public class SettingsFragment extends Fragment {
                 markdown.append(line).append("\n");
             }
             reader.close();
-            markwon.setMarkdown(binding.tvUsage, markdown.toString());
+            markon.setMarkdown(binding.tvUsage, markdown.toString());
         } catch (IOException e) {
             e.printStackTrace();
         }

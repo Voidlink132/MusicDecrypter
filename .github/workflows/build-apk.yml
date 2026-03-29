@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Android APK (Debug)
 on:
   workflow_dispatch:
 
@@ -19,11 +19,14 @@ jobs:
       - name: Grant Execute Permission for Gradlew
         run: chmod +x ./gradlew
 
-      - name: Build Release APK
-        run: ./gradlew assembleRelease
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug # 🔴 改这里：从 assembleRelease 改为 assembleDebug
 
-      - name: Upload APK Artifact
+      - name: List Build Outputs (for verification)
+        run: ls -la app/build/outputs/apk/debug/
+
+      - name: Upload Debug APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MusicDecrypter-Release
-          path: app/build/outputs/apk/release/*.apk
+          name: MusicDecrypter-Debug-APK # 🔴 改这里：命名为 Debug 版本
+          path: app/build/outputs/apk/debug/app-debug.apk

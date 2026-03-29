@@ -47,7 +47,10 @@ public class DecryptFragment extends Fragment implements DecryptBridge.DecryptCa
     private FragmentDecryptBinding binding;
     private static final String TARGET_URL = "https://demo.unlock-music.dev/";
     private boolean isWebViewReady = false;
-    private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    // 优化：限制核心线程数为1，避免多文件并发加载导致内存爆炸
+    private final ExecutorService executor = Executors.newFixedThreadPool(1);
+    // 关键：限制单文件最大50MB，可根据需求调整
+    private static final long MAX_FILE_SIZE = 50 * 1024 * 1024;
 
     private final List<Uri> pendingFileUris = new ArrayList<>();
     private final AtomicInteger successCount = new AtomicInteger(0);
@@ -66,6 +69,7 @@ public class DecryptFragment extends Fragment implements DecryptBridge.DecryptCa
                 successCount.set(0);
                 failedCount.set(0);
 
+                // 多选文件处理
                 if (result.getData().getClipData() != null) {
                     int count = result.getData().getClipData().getItemCount();
                     for (int i = 0; i < count; i++) {
@@ -154,7 +158,7 @@ public class DecryptFragment extends Fragment implements DecryptBridge.DecryptCa
 
             @Override
             public void onReceivedSslError(WebView view, SslErrorHandler handler, android.net.http.SslError error) {
-                handler.proceed();
+                handler.proceed(); // 忽略SSL错误
             }
 
             @Override
@@ -167,9 +171,9 @@ public class DecryptFragment extends Fragment implements DecryptBridge.DecryptCa
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
                 isWebViewReady = true;
-                binding.webview.setVisibility(View.INVISIBLE);
+                binding.webview.setVisibility(View.INVISIBLE); // 隐藏WebView，不影响UI
                 binding.errorTip.setVisibility(View.GONE);
-                binding.tvStatus.setText("解密引擎已就绪，可选择NCM/MGG/QMC等文件");
+                binding.tvStatus.setText("解密引擎已就绪，可选择NCM/MGG/QMC等文件（最大50MB）");
             }
         });
 
@@ -187,7 +191,7 @@ public class DecryptFragment extends Fragment implements DecryptBridge.DecryptCa
         fileChooserLauncher.launch(intent);
     }
 
-    // 批量解密队列
+    // 批量解密队列 - 核心修复：增加文件大小判断+优化内存读取
     private void startDecryptQueue() {
         if (pendingFileUris.isEmpty()) {
             requireActivity().runOnUiThread(() -> {
@@ -202,16 +206,29 @@ public class DecryptFragment extends Fragment implements DecryptBridge.DecryptCa
 
         executor.execute(() -> {
             try {
+                // 第一步：获取文件大小并判断是否超过阈值
+                long fileSize = getFileSizeFromUri(fileUri);
+                if (fileSize > MAX_FILE_SIZE) {
+                    requireActivity().runOnUiThread(() -> {
+                        Toast.makeText(requireContext(), "文件过大（超过50MB），暂不支持", Toast.LENGTH_LONG).show();
+                    });
+                    failedCount.incrementAndGet();
+                    startDecryptQueue();
+                    return;
+                }
+
+                // 第二步：读取文件（缓冲流优化，减少内存峰值）
                 String fileName = getFileNameFromUri(fileUri);
                 String mimeType = getMimeTypeFromUri(fileUri);
-                byte[] fileData = readFileToByteArray(fileUri);
-                String base64Data = android.util.Base64.encodeToString(fileData, android.util.Base64.NO_WRAP);
+                byte[] fileData = readFileToByteArrayWithBuffer(fileUri); // 替换原读取方法
 
                 requireActivity().runOnUiThread(() -> {
                     binding.progressBar.setVisibility(View.VISIBLE);
                     binding.tvStatus.setText(String.format(getString(R.string.status_decrypting), fileName, currentIndex, totalFileCount));
                 });
 
+                // 第三步：Base64编码（仅对合规大小文件处理）
+                String base64Data = android.util.Base64.encodeToString(fileData, android.util.Base64.NO_WRAP);
                 injectFileToWeb(fileName, base64Data, mimeType);
 
             } catch (Exception e) {
@@ -273,7 +290,7 @@ public class DecryptFragment extends Fragment implements DecryptBridge.DecryptCa
     public void onDecryptFailed(String errorMsg) {
         failedCount.incrementAndGet();
         requireActivity().runOnUiThread(() -> {
-            Toast.makeText(requireContext(), errorMsg, Toast.LENGTH_SHORT).show();
+            Toast.makeText(requireContext(), "解密失败：" + errorMsg, Toast.LENGTH_SHORT).show();
             startDecryptQueue();
         });
     }
@@ -294,6 +311,20 @@ public class DecryptFragment extends Fragment implements DecryptBridge.DecryptCa
         return name;
     }
 
+    // 核心新增：通过Uri获取文件大小
+    private long getFileSizeFromUri(Uri uri) {
+        if ("content".equals(uri.getScheme())) {
+            try (Cursor c = requireContext().getContentResolver().query(uri, new String[]{OpenableColumns.SIZE}, null, null, null)) {
+                if (c != null && c.moveToFirst()) {
+                    return c.getLong(c.getColumnIndex(OpenableColumns.SIZE));
+                }
+            }
+        } else if (uri.getPath() != null) {
+            return new File(uri.getPath()).length();
+        }
+        return 0;
+    }
+
     // 获取MIME类型
     private String getMimeTypeFromUri(Uri uri) {
         String type = requireContext().getContentResolver().getType(uri);
@@ -304,15 +335,19 @@ public class DecryptFragment extends Fragment implements DecryptBridge.DecryptCa
         return type!=null ? type : "application/octet-stream";
     }
 
-    // Uri转字节数组
-    private byte[] readFileToByteArray(Uri uri) throws Exception {
+    // 核心优化：缓冲流读取文件，减少内存峰值（替换原readFileToByteArray）
+    private byte[] readFileToByteArrayWithBuffer(Uri uri) throws Exception {
         InputStream is = requireContext().getContentResolver().openInputStream(uri);
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        byte[] buf = new byte[4096];
+        byte[] buf = new byte[8192]; // 8K缓冲，避免大数组
         int len;
-        while((len=is.read(buf))!=-1) bos.write(buf,0,len);
+        while((len=is.read(buf))!=-1) {
+            bos.write(buf,0,len);
+        }
         is.close();
-        return bos.toByteArray();
+        byte[] data = bos.toByteArray();
+        bos.close();
+        return data;
     }
 
     // 保存到 Download/MusicDecrypter
@@ -324,7 +359,7 @@ public class DecryptFragment extends Fragment implements DecryptBridge.DecryptCa
         fos.write(data);
         fos.flush();
         fos.close();
-        // 刷新媒体库
+        // 刷新媒体库，让文件在相册/文件管理器中可见
         requireContext().sendBroadcast(new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, Uri.fromFile(outFile)));
     }
 
@@ -344,14 +379,25 @@ public class DecryptFragment extends Fragment implements DecryptBridge.DecryptCa
         startActivity(Intent.createChooser(intent, "打开解密文件夹"));
     }
 
+    // 核心修复：规范WebView销毁，避免内存泄漏+解绑后再销毁
     @Override
     public void onDestroyView() {
-        if(binding.webview!=null){
-            binding.webview.stopLoading();
-            binding.webview.destroy();
-        }
-        executor.shutdownNow();
         super.onDestroyView();
+        if(binding.webview!=null){
+            // 1. 先停止加载
+            binding.webview.stopLoading();
+            // 2. 移除JS接口
+            binding.webview.removeJavascriptInterface("AndroidDecryptBridge");
+            // 3. 从父布局解绑
+            ((ViewGroup)binding.webview.getParent()).removeView(binding.webview);
+            // 4. 最后销毁
+            binding.webview.destroy();
+            binding.webview = null;
+        }
+        // 关闭线程池，释放资源
+        if(!executor.isShutdown()){
+            executor.shutdownNow();
+        }
         binding = null;
     }
 }

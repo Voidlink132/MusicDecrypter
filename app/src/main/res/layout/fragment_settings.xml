@@ -31,24 +31,4 @@
             android:layout_height="wrap_content"
             android:textSize="14sp"
             android:paddingHorizontal="16dp"
-            android:paddingBottom="16dp" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/settings_usage"
-            android:textSize="16sp"
-            android:padding="16dp"
-            android:background="?attr/selectableItemBackground" />
-
-        <TextView
-            android:id="@+id/tv_usage"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:padding="16dp"
-            android:textSize="14sp"
-            android:lineSpacingExtra="4dp" />
-
-    </LinearLayout>
-
-</ScrollView>
+            android:paddingBottom="1

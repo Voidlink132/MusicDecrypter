@@ -6,8 +6,6 @@ import java.util.List;
 
 public class FileScannerUtils {
 
-    private static final List<String> SUPPORTED_FORMATS = List.of("mp3", "flac", "ncm", "qmc", "kgm", "mgg", "ogg");
-
     public static class MusicDir {
         private final String name;
         private final String path;
@@ -19,45 +17,36 @@ public class FileScannerUtils {
             this.tableId = tableId;
         }
 
-        public String getPath() {
-            return path;
-        }
-
-        public int getTableId() {
-            return tableId;
-        }
+        public String getName() { return name; }
+        public String getPath() { return path; }
+        public int getTableId() { return tableId; }
     }
 
+    // 扫描指定目录下的所有音乐文件
     public static List<String> scanMusicFiles(String dirPath) {
         List<String> fileList = new ArrayList<>();
         File dir = new File(dirPath);
-
         if (!dir.exists() || !dir.isDirectory()) {
             return fileList;
         }
 
         File[] files = dir.listFiles();
-        if (files == null) {
-            return fileList;
-        }
+        if (files == null) return fileList;
 
         for (File file : files) {
-            if (file.isFile()) {
-                String extension = getFileExtension(file.getName());
-                if (SUPPORTED_FORMATS.contains(extension.toLowerCase())) {
-                    fileList.add(file.getName());
-                }
+            if (file.isFile() && isMusicFile(file.getName())) {
+                fileList.add(file.getName());
             }
         }
-
         return fileList;
     }
 
-    private static String getFileExtension(String fileName) {
-        int lastDotIndex = fileName.lastIndexOf('.');
-        if (lastDotIndex == -1) {
-            return "";
+    // 判断是否为支持的音乐格式
+    private static boolean isMusicFile(String fileName) {
+        String[] exts = {".ncm", ".mflac", ".mgg", ".kgm", ".kgma", ".qmcogg", ".qmcflac", ".qmc0"};
+        for (String ext : exts) {
+            if (fileName.endsWith(ext)) return true;
         }
-        return fileName.substring(lastDotIndex + 1);
+        return false;
     }
 }

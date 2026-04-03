@@ -1,21 +1,14 @@
-package com.musicdecrypter.ui;
+package com.musicdecrypter;
 
 import android.os.Bundle;
+import android.view.ViewParent;
+import android.view.ViewGroup;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.navigation.NavController;
-import androidx.navigation.fragment.NavHostFragment;
-import androidx.navigation.ui.NavigationUI;
-
-import com.google.android.material.bottomnavigation.BottomNavigationView;
-import com.musicdecrypter.R;
+import com.musicdecrypter.ui.SearchFragment;
 import com.musicdecrypter.utils.DecryptBridge;
-
-import android.view.ViewParent;
-import android.view.ViewGroup;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -29,17 +22,16 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // 初始化底部导航（你的原有代码）
-        NavHostFragment navHostFragment = (NavHostFragment) getSupportFragmentManager().findFragmentById(R.id.nav_host_fragment);
-        NavController navController = navHostFragment.getNavController();
-        BottomNavigationView bottomNav = findViewById(R.id.bottom_nav);
-        NavigationUI.setupWithNavController(bottomNav, navController);
+        // 直接加载文件查找Fragment（无需Navigation）
+        getSupportFragmentManager().beginTransaction()
+                .replace(android.R.id.content, new SearchFragment())
+                .commit();
 
-        // 初始化全局解密WebView（核心新增）
+        // 初始化解密WebView
         initDecryptWebView();
     }
 
-    // 初始化解密WebView
+    // 初始化解密WebView（核心功能不变）
     private void initDecryptWebView() {
         decryptWebView = new WebView(this);
         WebSettings webSettings = decryptWebView.getSettings();
@@ -63,32 +55,29 @@ public class MainActivity extends AppCompatActivity {
         decryptWebView.loadUrl(DECRYPT_URL);
     }
 
-    // 对外暴露的解密方法
+    // 对外暴露的解密方法（供Fragment调用）
     public void startDecrypt(String filePath, String fileName, DecryptBridge.DecryptCallback callback) {
         if (!isWebViewReady) {
             callback.onDecryptFailed("解密引擎未就绪，请稍候重试");
             return;
         }
 
-        // 移除旧的桥接，设置新的回调
         decryptWebView.removeJavascriptInterface("AndroidDecryptBridge");
         currentDecryptBridge = new DecryptBridge(callback);
         decryptWebView.addJavascriptInterface(currentDecryptBridge, "AndroidDecryptBridge");
 
-        // 获取文件MIME类型
         String mimeType = getMimeType(fileName);
-        // 注入分块解密JS代码
         injectDecryptJs(filePath, fileName, mimeType);
     }
 
-    // 注入解密JS代码（分块读取，无内存限制）
+    // 分块解密JS注入
     private void injectDecryptJs(String filePath, String fileName, String mimeType) {
         String js = "(async ()=>{"
                 + "try{"
                 + "const filePath = '" + filePath.replace("'", "\\'") + "';"
                 + "const fileName = '" + fileName.replace("'", "\\'") + "';"
                 + "const mimeType = '" + mimeType + "';"
-                + "const blockSize = 1024 * 1024; // 1MB每块，内存占用极低"
+                + "const blockSize = 1024 * 1024;"
                 + "const fileSize = AndroidDecryptBridge.openFile(filePath);"
                 + "if(fileSize < 0) throw new Error('无法打开文件');"
                 + "const chunks = [];"
@@ -124,7 +113,7 @@ public class MainActivity extends AppCompatActivity {
                 + "rd.readAsDataURL(bl);"
                 + "});"
                 + "}else{"
-                + "AndroidDecryptBridge.onDecryptFailed('不支持的文件格式或解密失败');"
+                + "AndroidDecryptBridge.onDecryptFailed('解密失败');"
                 + "}"
                 + "}, 5000);"
                 + "}catch(e){"
@@ -145,7 +134,7 @@ public class MainActivity extends AppCompatActivity {
         return "application/octet-stream";
     }
 
-    // 页面销毁时释放WebView
+    // 释放WebView
     @Override
     protected void onDestroy() {
         if (decryptWebView != null) {

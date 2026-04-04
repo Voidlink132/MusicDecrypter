@@ -225,13 +225,15 @@ public class DecryptFragment extends Fragment implements DecryptBridge.DecryptCa
 
     private void openSaveDir() {
         if (!isAdded() || getContext() == null) return;
-        File dir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "MusicDecrypter");
+        String dirPath = SpUtils.getSavePath(requireContext());
+        File dir = new File(dirPath);
         if (!dir.exists()) dir.mkdirs();
         Intent intent = new Intent(Intent.ACTION_VIEW);
         intent.setDataAndType(android.net.Uri.parse(dir.getAbsolutePath()), "*/*");
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         startActivity(Intent.createChooser(intent, "打开解密文件夹"));
     }
+
 
     @Override
     public void onDestroyView() {

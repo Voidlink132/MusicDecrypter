@@ -25,6 +25,7 @@ android {
     // 必须开启：DecryptFragment使用了ViewBinding
     buildFeatures {
         viewBinding true
+        dataBinding true
     }
 
     compileOptions {

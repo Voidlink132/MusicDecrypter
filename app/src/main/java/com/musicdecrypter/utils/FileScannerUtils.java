@@ -20,7 +20,6 @@ public class FileScannerUtils {
         public String getPath() { return path; }
     }
 
-    // 适配高版本系统真实可用路径
     public static final List<MusicDir> MUSIC_DIR_LIST = new ArrayList<>();
     static {
         MUSIC_DIR_LIST.add(new MusicDir("网易云音乐",
@@ -34,7 +33,6 @@ public class FileScannerUtils {
                         + "/kugou/download/"));
     }
 
-    // 扫描ncm/mflac/mgg/kgm等加密格式
     public static List<String> scanMusicFiles(String dirPath) {
         List<String> res = new ArrayList<>();
         File dir = new File(dirPath);

@@ -6,7 +6,9 @@ import android.view.ViewGroup;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+
 import androidx.appcompat.app.AppCompatActivity;
+
 import com.musicdecrypter.ui.SearchFragment;
 import com.musicdecrypter.utils.DecryptBridge;
 
@@ -22,12 +24,14 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // 直接加载文件列表页，无导航依赖，零资源报错
-        getSupportFragmentManager().beginTransaction()
-                .replace(R.id.fragment_container, new SearchFragment())
-                .commit();
+        // 加载主Fragment，无无效引用
+        if (savedInstanceState == null) {
+            getSupportFragmentManager().beginTransaction()
+                    .replace(R.id.fragment_container, new SearchFragment())
+                    .commit();
+        }
 
-        // 初始化全局解密内核
+        // 初始化全局解密WebView
         initDecryptWebView();
     }
 
@@ -54,13 +58,14 @@ public class MainActivity extends AppCompatActivity {
         decryptWebView.loadUrl(DECRYPT_URL);
     }
 
-    // 供Fragment调用的解密方法
+    // 对外暴露的解密方法
     public void startDecrypt(String filePath, String fileName, DecryptBridge.DecryptCallback callback) {
         if (!isWebViewReady) {
             callback.onDecryptFailed("解密引擎未就绪，请稍候重试");
             return;
         }
 
+        // 清理旧桥接，避免内存泄漏
         decryptWebView.removeJavascriptInterface("AndroidDecryptBridge");
         currentDecryptBridge = new DecryptBridge(callback);
         decryptWebView.addJavascriptInterface(currentDecryptBridge, "AndroidDecryptBridge");
@@ -69,6 +74,7 @@ public class MainActivity extends AppCompatActivity {
         injectDecryptJs(filePath, fileName, mimeType);
     }
 
+    // 分块解密JS注入
     private void injectDecryptJs(String filePath, String fileName, String mimeType) {
         String js = "(async ()=>{"
                 + "try{"
@@ -123,6 +129,7 @@ public class MainActivity extends AppCompatActivity {
         decryptWebView.evaluateJavascript(js, null);
     }
 
+    // 获取文件MIME类型
     private String getMimeType(String fileName) {
         if (fileName.endsWith(".ncm")) return "audio/ncm";
         if (fileName.endsWith(".mgg") || fileName.endsWith(".mflac")) return "audio/mgg";
@@ -131,6 +138,7 @@ public class MainActivity extends AppCompatActivity {
         return "application/octet-stream";
     }
 
+    // 规范销毁WebView
     @Override
     protected void onDestroy() {
         if (decryptWebView != null) {

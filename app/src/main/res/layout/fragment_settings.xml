@@ -1,54 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:fillViewport="true"
+    android:orientation="vertical"
     android:padding="16dp">
 
-    <LinearLayout
+    <TextView
+        android:id="@+id/tv_settings_content"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:spacing="12dp">
+        android:textSize="14sp"
+        android:lineSpacingExtra="8dp"/>
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_check_permission"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/settings_check_permission" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/settings_version"
-            android:textSize="16sp"
-            android:padding="16dp"
-            android:background="?attr/selectableItemBackground" />
-
-        <TextView
-            android:id="@+id/tv_version"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:textSize="14sp"
-            android:paddingHorizontal="16dp"
-            android:paddingBottom="16dp" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/settings_usage"
-            android:textSize="16sp"
-            android:padding="16dp"
-            android:background="?attr/selectableItemBackground" />
-
-        <TextView
-            android:id="@+id/tv_usage"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:padding="16dp"
-            android:textSize="14sp"
-            android:lineSpacingExtra="4dp" />
-
-    </LinearLayout>
-
-</ScrollView>
+</LinearLayout>

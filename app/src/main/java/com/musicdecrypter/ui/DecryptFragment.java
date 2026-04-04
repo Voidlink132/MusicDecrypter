@@ -142,8 +142,22 @@ public class DecryptFragment extends Fragment implements DecryptBridge.DecryptCa
         }
 
         try {
-            saveToDownloadDir(fileName, fileData);
-            successCount.incrementAndGet();
+            String saveDirPath = SpUtils.getSavePath(requireContext());
+            File saveDir = new File(saveDirPath);
+            if (!saveDir.exists()) saveDir.mkdirs();
+            File outFile = new File(saveDir, fileName);
+            FileOutputStream fos = new FileOutputStream(outFile);
+            fos.write(fileData);
+            fos.flush();
+            fos.close();
+            requireContext().sendBroadcast(new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, android.net.Uri.fromFile(outFile)));
+
+        // 提示完整存储路径
+            String finalPath = outFile.getAbsolutePath();
+            requireActivity().runOnUiThread(() -> {
+                Toast.makeText(requireContext(), "解密成功！文件已保存到：\n" + finalPath, Toast.LENGTH_LONG).show();
+            });
+    
         } catch (Exception e) {
             failedCount.incrementAndGet();
             requireActivity().runOnUiThread(() -> {

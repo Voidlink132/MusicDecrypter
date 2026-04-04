@@ -39,6 +39,9 @@ dependencies {
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     implementation 'androidx.recyclerview:recyclerview:1.3.2'
 
+    // 解决Markwon报错的核心依赖
+    implementation 'io.noties.markwon:core:4.6.2'
+
     // 测试依赖（保留原有即可）
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'

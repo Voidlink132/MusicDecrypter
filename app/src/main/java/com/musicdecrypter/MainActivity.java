@@ -7,13 +7,17 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.viewpager2.widget.ViewPager2;
 
-import com.musicdecrypter.ui.SearchFragment;
+import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.musicdecrypter.utils.DecryptBridge;
 
 public class MainActivity extends AppCompatActivity {
 
+    private ViewPager2 viewPager;
+    private BottomNavigationView bottomNav;
     private WebView decryptWebView;
     private DecryptBridge currentDecryptBridge;
     private static final String DECRYPT_URL = "https://demo.unlock-music.dev/";
@@ -24,15 +28,48 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // 加载主Fragment，无无效引用
-        if (savedInstanceState == null) {
-            getSupportFragmentManager().beginTransaction()
-                    .replace(R.id.fragment_container, new SearchFragment())
-                    .commit();
-        }
-
-        // 初始化全局解密WebView
+        // 初始化底部Tab导航
+        initBottomNav();
+        // 初始化全局解密内核
         initDecryptWebView();
+    }
+
+    private void initBottomNav() {
+        viewPager = findViewById(R.id.view_pager);
+        bottomNav = findViewById(R.id.bottom_nav);
+
+        FragmentPagerAdapter adapter = new FragmentPagerAdapter(this);
+        viewPager.setAdapter(adapter);
+        viewPager.setUserInputEnabled(false); // 禁止左右滑动，避免误触
+
+        // Tab点击切换页面
+        bottomNav.setOnItemSelectedListener(item -> {
+            int itemId = item.getItemId();
+            if (itemId == R.id.nav_search) {
+                viewPager.setCurrentItem(0, false);
+                return true;
+            } else if (itemId == R.id.nav_decrypt) {
+                viewPager.setCurrentItem(1, false);
+                return true;
+            } else if (itemId == R.id.nav_settings) {
+                viewPager.setCurrentItem(2, false);
+                return true;
+            }
+            return false;
+        });
+
+        // 页面切换同步Tab选中状态
+        viewPager.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
+            @Override
+            public void onPageSelected(int position) {
+                super.onPageSelected(position);
+                switch (position) {
+                    case 0: bottomNav.setSelectedItemId(R.id.nav_search); break;
+                    case 1: bottomNav.setSelectedItemId(R.id.nav_decrypt); break;
+                    case 2: bottomNav.setSelectedItemId(R.id.nav_settings); break;
+                }
+            }
+        });
     }
 
     private void initDecryptWebView() {
@@ -65,7 +102,6 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
-        // 清理旧桥接，避免内存泄漏
         decryptWebView.removeJavascriptInterface("AndroidDecryptBridge");
         currentDecryptBridge = new DecryptBridge(callback);
         decryptWebView.addJavascriptInterface(currentDecryptBridge, "AndroidDecryptBridge");

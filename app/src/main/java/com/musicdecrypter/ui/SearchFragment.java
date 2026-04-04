@@ -171,16 +171,26 @@ public class SearchFragment extends Fragment implements DecryptBridge.DecryptCal
             startDecryptQueue();
             return;
         }
-
+    
         try {
-            File saveDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "MusicDecrypter");
+            // 读取自定义存储路径
+            String saveDirPath = SpUtils.getSavePath(requireContext());
+            File saveDir = new File(saveDirPath);
             if (!saveDir.exists()) saveDir.mkdirs();
             File outFile = new File(saveDir, fileName);
             FileOutputStream fos = new FileOutputStream(outFile);
             fos.write(fileData);
             fos.flush();
             fos.close();
+            // 刷新媒体库
             requireContext().sendBroadcast(new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, android.net.Uri.fromFile(outFile)));
+
+            // 提示完整存储路径
+            String finalPath = outFile.getAbsolutePath();
+            requireActivity().runOnUiThread(() -> {
+                Toast.makeText(requireContext(), "解密成功！文件已保存到：\n" + finalPath, Toast.LENGTH_LONG).show();
+            });
+    
         } catch (Exception e) {
             requireActivity().runOnUiThread(() -> {
                 Toast.makeText(requireContext(), "文件保存失败：" + e.getMessage(), Toast.LENGTH_SHORT).show();
@@ -188,6 +198,7 @@ public class SearchFragment extends Fragment implements DecryptBridge.DecryptCal
         }
         startDecryptQueue();
     }
+
 
     @Override
     public void onDecryptFailed(String errorMsg) {

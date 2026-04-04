@@ -11,7 +11,7 @@ android {
         minSdk 24
         targetSdk 34
         versionCode 1
-        versionName "1.0.0"
+        versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -22,27 +22,28 @@ android {
         }
     }
 
+    // 必须开启：DecryptFragment使用了ViewBinding
+    buildFeatures {
+        viewBinding true
+    }
+
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
-
-    viewBinding {
-        enabled = true
-    }
 }
 
 dependencies {
-    // 核心基础依赖
+    // 核心基础依赖（全部有效，无冗余）
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.12.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     implementation 'androidx.recyclerview:recyclerview:1.3.2'
 
-    // 解决Markwon报错的核心依赖
+    // Markwon 依赖（SettingsFragment使用，有效）
     implementation 'io.noties.markwon:core:4.6.2'
 
-    // 测试依赖（保留原有即可）
+    // 测试依赖（默认有效）
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'

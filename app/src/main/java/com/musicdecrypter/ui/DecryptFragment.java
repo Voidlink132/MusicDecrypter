@@ -19,6 +19,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
+import com.musicdecrypter.MainActivity;
 import com.musicdecrypter.R;
 import com.musicdecrypter.databinding.FragmentDecryptBinding;
 import com.musicdecrypter.utils.DecryptBridge;
@@ -38,7 +39,6 @@ public class DecryptFragment extends Fragment implements DecryptBridge.DecryptCa
     private final AtomicInteger failedCount = new AtomicInteger(0);
     private int totalFileCount = 0;
 
-    // 文件选择器
     private final ActivityResultLauncher<Intent> fileChooserLauncher = registerForActivityResult(
             new ActivityResultContracts.StartActivityForResult(),
             result -> {
@@ -77,17 +77,11 @@ public class DecryptFragment extends Fragment implements DecryptBridge.DecryptCa
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        // 打开解密目录按钮
         binding.btnDownload.setOnClickListener(v -> openSaveDir());
-
-        // 选择文件按钮
         binding.btnSelectFile.setOnClickListener(v -> openFileChooser());
-
-        // 初始化状态
         binding.tvStatus.setText("解密引擎已就绪，可选择加密音乐文件");
     }
 
-    // 打开文件选择器
     private void openFileChooser() {
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
         intent.addCategory(Intent.CATEGORY_OPENABLE);
@@ -96,7 +90,6 @@ public class DecryptFragment extends Fragment implements DecryptBridge.DecryptCa
         fileChooserLauncher.launch(intent);
     }
 
-    // 解密队列
     private void startDecryptQueue() {
         if (pendingFileUris.isEmpty()) {
             requireActivity().runOnUiThread(() -> {
@@ -119,7 +112,6 @@ public class DecryptFragment extends Fragment implements DecryptBridge.DecryptCa
                 binding.tvStatus.setText(String.format("正在解密(%d/%d)：%s", currentIndex, totalFileCount, fileName));
             });
 
-            // 调用全局解密方法
             if (getActivity() instanceof MainActivity) {
                 ((MainActivity) getActivity()).startDecrypt(filePath, fileName, this);
             }
@@ -133,7 +125,6 @@ public class DecryptFragment extends Fragment implements DecryptBridge.DecryptCa
         }
     }
 
-    // 解密成功回调
     @Override
     public void onDecryptSuccess(String fileName, byte[] fileData) {
         try {
@@ -148,7 +139,6 @@ public class DecryptFragment extends Fragment implements DecryptBridge.DecryptCa
         startDecryptQueue();
     }
 
-    // 解密失败回调
     @Override
     public void onDecryptFailed(String errorMsg) {
         failedCount.incrementAndGet();
@@ -160,10 +150,8 @@ public class DecryptFragment extends Fragment implements DecryptBridge.DecryptCa
 
     @Override
     public void onDecryptProgress(int current, int total) {
-        // 可选：更新进度条
     }
 
-    // 工具方法：获取文件名
     private String getFileNameFromUri(Uri uri) {
         String name = "unknown_audio";
         if ("content".equals(uri.getScheme())) {
@@ -179,7 +167,6 @@ public class DecryptFragment extends Fragment implements DecryptBridge.DecryptCa
         return name;
     }
 
-    // 工具方法：获取文件绝对路径
     private String getFilePathFromUri(Uri uri) {
         String path = "";
         if ("content".equals(uri.getScheme())) {
@@ -195,7 +182,6 @@ public class DecryptFragment extends Fragment implements DecryptBridge.DecryptCa
         return path;
     }
 
-    // 工具方法：保存文件到下载目录
     private void saveToDownloadDir(String fileName, byte[] data) throws Exception {
         File root = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "MusicDecrypter");
         if (!root.exists()) root.mkdirs();
@@ -207,7 +193,6 @@ public class DecryptFragment extends Fragment implements DecryptBridge.DecryptCa
         requireContext().sendBroadcast(new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, android.net.Uri.fromFile(outFile)));
     }
 
-    // 工具方法：打开保存目录
     private void openSaveDir() {
         File dir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "MusicDecrypter");
         if (!dir.exists()) dir.mkdirs();

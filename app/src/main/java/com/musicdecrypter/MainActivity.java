@@ -22,16 +22,15 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // 直接加载文件查找Fragment（无需Navigation）
+        // 直接加载文件列表页，无导航依赖，零资源报错
         getSupportFragmentManager().beginTransaction()
-                .replace(android.R.id.content, new SearchFragment())
+                .replace(R.id.fragment_container, new SearchFragment())
                 .commit();
 
-        // 初始化解密WebView
+        // 初始化全局解密内核
         initDecryptWebView();
     }
 
-    // 初始化解密WebView（核心功能不变）
     private void initDecryptWebView() {
         decryptWebView = new WebView(this);
         WebSettings webSettings = decryptWebView.getSettings();
@@ -55,7 +54,7 @@ public class MainActivity extends AppCompatActivity {
         decryptWebView.loadUrl(DECRYPT_URL);
     }
 
-    // 对外暴露的解密方法（供Fragment调用）
+    // 供Fragment调用的解密方法
     public void startDecrypt(String filePath, String fileName, DecryptBridge.DecryptCallback callback) {
         if (!isWebViewReady) {
             callback.onDecryptFailed("解密引擎未就绪，请稍候重试");
@@ -70,7 +69,6 @@ public class MainActivity extends AppCompatActivity {
         injectDecryptJs(filePath, fileName, mimeType);
     }
 
-    // 分块解密JS注入
     private void injectDecryptJs(String filePath, String fileName, String mimeType) {
         String js = "(async ()=>{"
                 + "try{"
@@ -113,7 +111,7 @@ public class MainActivity extends AppCompatActivity {
                 + "rd.readAsDataURL(bl);"
                 + "});"
                 + "}else{"
-                + "AndroidDecryptBridge.onDecryptFailed('解密失败');"
+                + "AndroidDecryptBridge.onDecryptFailed('不支持的文件格式或解密失败');"
                 + "}"
                 + "}, 5000);"
                 + "}catch(e){"
@@ -125,7 +123,6 @@ public class MainActivity extends AppCompatActivity {
         decryptWebView.evaluateJavascript(js, null);
     }
 
-    // 获取文件MIME类型
     private String getMimeType(String fileName) {
         if (fileName.endsWith(".ncm")) return "audio/ncm";
         if (fileName.endsWith(".mgg") || fileName.endsWith(".mflac")) return "audio/mgg";
@@ -134,7 +131,6 @@ public class MainActivity extends AppCompatActivity {
         return "application/octet-stream";
     }
 
-    // 释放WebView
     @Override
     protected void onDestroy() {
         if (decryptWebView != null) {

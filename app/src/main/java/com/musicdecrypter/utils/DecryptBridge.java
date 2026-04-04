@@ -18,7 +18,6 @@ public class DecryptBridge {
         this.callback = callback;
     }
 
-    // 打开文件，返回文件大小
     @JavascriptInterface
     public long openFile(String filePath) {
         try {
@@ -30,7 +29,6 @@ public class DecryptBridge {
         }
     }
 
-    // 分块读取文件（1MB/块），返回Base64编码
     @JavascriptInterface
     public String readBlock(int blockSize) {
         try {
@@ -46,7 +44,6 @@ public class DecryptBridge {
         }
     }
 
-    // 关闭文件
     @JavascriptInterface
     public void closeFile() {
         try {
@@ -59,7 +56,6 @@ public class DecryptBridge {
         }
     }
 
-    // 解密成功回调
     @JavascriptInterface
     public void onDecryptSuccess(String fileName, String base64Data) {
         if (callback != null) {
@@ -68,7 +64,6 @@ public class DecryptBridge {
         }
     }
 
-    // 解密失败回调
     @JavascriptInterface
     public void onDecryptFailed(String errorMsg) {
         if (callback != null) {
@@ -76,7 +71,6 @@ public class DecryptBridge {
         }
     }
 
-    // 解密进度回调
     @JavascriptInterface
     public void onDecryptProgress(int current, int total) {
         if (callback != null) {

@@ -92,11 +92,13 @@ public class DecryptFragment extends Fragment implements DecryptBridge.DecryptCa
 
     private void startDecryptQueue() {
         if (pendingFileUris.isEmpty()) {
-            requireActivity().runOnUiThread(() -> {
-                binding.progressBar.setVisibility(View.GONE);
-                binding.tvStatus.setText(String.format("解密完成！成功：%d 个，失败：%d 个", successCount.get(), failedCount.get()));
-                binding.btnDownload.setVisibility(View.VISIBLE);
-            });
+            if (isAdded() && getContext() != null) {
+                requireActivity().runOnUiThread(() -> {
+                    binding.progressBar.setVisibility(View.GONE);
+                    binding.tvStatus.setText(String.format("解密完成！成功：%d 个，失败：%d 个", successCount.get(), failedCount.get()));
+                    binding.btnDownload.setVisibility(View.VISIBLE);
+                });
+            }
             return;
         }
 
@@ -107,26 +109,38 @@ public class DecryptFragment extends Fragment implements DecryptBridge.DecryptCa
             String fileName = getFileNameFromUri(fileUri);
             String filePath = getFilePathFromUri(fileUri);
 
-            requireActivity().runOnUiThread(() -> {
-                binding.progressBar.setVisibility(View.VISIBLE);
-                binding.tvStatus.setText(String.format("正在解密(%d/%d)：%s", currentIndex, totalFileCount, fileName));
-            });
+            if (isAdded() && getContext() != null) {
+                requireActivity().runOnUiThread(() -> {
+                    binding.progressBar.setVisibility(View.VISIBLE);
+                    binding.tvStatus.setText(String.format("正在解密(%d/%d)：%s", currentIndex, totalFileCount, fileName));
+                });
+            }
 
-            if (getActivity() instanceof MainActivity) {
-                ((MainActivity) getActivity()).startDecrypt(filePath, fileName, this);
+            MainActivity activity = getActivity() instanceof MainActivity ? (MainActivity) getActivity() : null;
+            if (activity != null) {
+                activity.startDecrypt(filePath, fileName, this);
+            } else {
+                startDecryptQueue();
             }
 
         } catch (Exception e) {
             failedCount.incrementAndGet();
-            requireActivity().runOnUiThread(() -> {
-                Toast.makeText(requireContext(), "读取文件失败：" + e.getMessage(), Toast.LENGTH_SHORT).show();
-            });
+            if (isAdded() && getContext() != null) {
+                requireActivity().runOnUiThread(() -> {
+                    Toast.makeText(requireContext(), "读取文件失败：" + e.getMessage(), Toast.LENGTH_SHORT).show();
+                });
+            }
             startDecryptQueue();
         }
     }
 
     @Override
     public void onDecryptSuccess(String fileName, byte[] fileData) {
+        if (!isAdded() || getContext() == null) {
+            startDecryptQueue();
+            return;
+        }
+
         try {
             saveToDownloadDir(fileName, fileData);
             successCount.incrementAndGet();
@@ -141,15 +155,17 @@ public class DecryptFragment extends Fragment implements DecryptBridge.DecryptCa
 
     @Override
     public void onDecryptFailed(String errorMsg) {
-        failedCount.incrementAndGet();
-        requireActivity().runOnUiThread(() -> {
-            Toast.makeText(requireContext(), "解密失败：" + errorMsg, Toast.LENGTH_SHORT).show();
-        });
+        if (isAdded() && getContext() != null) {
+            requireActivity().runOnUiThread(() -> {
+                Toast.makeText(requireContext(), "解密失败：" + errorMsg, Toast.LENGTH_SHORT).show();
+            });
+        }
         startDecryptQueue();
     }
 
     @Override
     public void onDecryptProgress(int current, int total) {
+        // 预留进度回调
     }
 
     private String getFileNameFromUri(Uri uri) {
@@ -194,6 +210,7 @@ public class DecryptFragment extends Fragment implements DecryptBridge.DecryptCa
     }
 
     private void openSaveDir() {
+        if (!isAdded() || getContext() == null) return;
         File dir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "MusicDecrypter");
         if (!dir.exists()) dir.mkdirs();
         Intent intent = new Intent(Intent.ACTION_VIEW);

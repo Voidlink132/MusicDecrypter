@@ -5,6 +5,56 @@
     android:orientation="vertical"
     android:padding="16dp">
 
+    <!-- 存储路径设置区域 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="#f5f5f5"
+        android:padding="16dp"
+        android:layout_marginBottom="16dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="解密文件存储路径"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp"/>
+
+        <TextView
+            android:id="@+id/tv_save_path"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="14sp"
+            android:textColor="#666666"
+            android:layout_marginBottom="12dp"/>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gap="8dp">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_reset_path"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="恢复默认路径"/>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_modify_path"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="修改存储路径"/>
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <!-- 关于说明 -->
     <TextView
         android:id="@+id/tv_settings_content"
         android:layout_width="match_parent"

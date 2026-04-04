@@ -1,15 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
     <item
-        android:id="@+id/nav_decrypt"
-        android:title="@string/tab_decrypt"
-        android:icon="@android:drawable/ic_lock_lock" />
-    <item
         android:id="@+id/nav_search"
-        android:title="@string/tab_search"
+        android:title="音乐列表"
         android:icon="@android:drawable/ic_menu_search" />
     <item
+        android:id="@+id/nav_decrypt"
+        android:title="手动解密"
+        android:icon="@android:drawable/ic_menu_save" />
+    <item
         android:id="@+id/nav_settings"
-        android:title="@string/tab_settings"
+        android:title="设置"
         android:icon="@android:drawable/ic_menu_preferences" />
 </menu>

@@ -33,22 +33,23 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gap="8dp">
+            android:orientation="horizontal">
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_reset_path"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="恢复默认路径"/>
+                android:text="恢复默认路径"
+                android:layout_marginEnd="4dp"/>
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_modify_path"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="修改存储路径"/>
+                android:text="修改存储路径"
+                android:layout_marginStart="4dp"/>
 
         </LinearLayout>
 

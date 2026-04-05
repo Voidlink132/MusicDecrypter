@@ -9,6 +9,8 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.CheckBox;
+import android.widget.LinearLayout;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -21,9 +23,9 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.button.MaterialButton;
 import com.musicdecrypter.MainActivity;
 import com.musicdecrypter.R;
-import com.musicdecrypter.utils.SpUtils;
 import com.musicdecrypter.utils.DecryptBridge;
 import com.musicdecrypter.utils.FileScannerUtils;
+import com.musicdecrypter.utils.SpUtils;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -32,6 +34,9 @@ import java.util.List;
 
 public class SearchFragment extends Fragment implements DecryptBridge.DecryptCallback {
 
+    private LinearLayout llProgressArea;
+    private TextView tvDecryptStep;
+    private ProgressBar decryptProgressBar;
     private CheckBox cbSelectAll;
     private MaterialButton btnBatchDecrypt;
     private RecyclerView rvMusicFiles;
@@ -42,6 +47,16 @@ public class SearchFragment extends Fragment implements DecryptBridge.DecryptCal
     private int currentDecryptIndex = 0;
     private int totalDecryptCount = 0;
 
+    // 步骤文本映射
+    private final String[] stepTexts = {
+            "就绪",
+            "正在读取文件...",
+            "正在初始化解密引擎...",
+            "正在解密文件...",
+            "正在保存文件...",
+            "解密完成"
+    };
+
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
@@ -51,7 +66,11 @@ public class SearchFragment extends Fragment implements DecryptBridge.DecryptCal
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        // 控件id和布局完全对应
+        // 绑定进度控件
+        llProgressArea = view.findViewById(R.id.ll_progress_area);
+        tvDecryptStep = view.findViewById(R.id.tv_decrypt_step);
+        decryptProgressBar = view.findViewById(R.id.decrypt_progress_bar);
+        // 绑定原有控件
         cbSelectAll = view.findViewById(R.id.cb_select_all);
         btnBatchDecrypt = view.findViewById(R.id.btn_batch_decrypt);
         rvMusicFiles = view.findViewById(R.id.rv_music_files);
@@ -72,14 +91,12 @@ public class SearchFragment extends Fragment implements DecryptBridge.DecryptCal
         });
         rvMusicFiles.setAdapter(adapter);
 
-        // 全选逻辑
         cbSelectAll.setOnCheckedChangeListener((buttonView, isChecked) -> {
             if (buttonView.isPressed()) {
                 adapter.setAllSelected(isChecked);
             }
         });
 
-        // 批量解密逻辑
         btnBatchDecrypt.setOnClickListener(v -> {
             List<MusicFileItem> selected = new ArrayList<>();
             for (MusicFileItem item : musicFileList) {
@@ -111,7 +128,17 @@ public class SearchFragment extends Fragment implements DecryptBridge.DecryptCal
             List<String> fileNames = FileScannerUtils.scanMusicFiles(dir.getPath());
             for (String fileName : fileNames) {
                 String fullPath = dir.getPath() + fileName;
-                musicFileList.add(new MusicFileItem(dir.getName(), fileName, fullPath));
+                // 去重
+                boolean isExist = false;
+                for (MusicFileItem item : musicFileList) {
+                    if (item.getFilePath().equals(fullPath)) {
+                        isExist = true;
+                        break;
+                    }
+                }
+                if (!isExist) {
+                    musicFileList.add(new MusicFileItem(dir.getName(), fileName, fullPath));
+                }
             }
         }
 
@@ -141,7 +168,8 @@ public class SearchFragment extends Fragment implements DecryptBridge.DecryptCal
         if (pendingDecryptList.isEmpty()) {
             if (isAdded() && getContext() != null) {
                 requireActivity().runOnUiThread(() -> {
-                    Toast.makeText(requireContext(), "解密完成！文件已保存到 下载/MusicDecrypter 目录", Toast.LENGTH_LONG).show();
+                    llProgressArea.setVisibility(View.GONE);
+                    Toast.makeText(requireContext(), "全部解密完成！文件已保存到 " + SpUtils.getSavePath(requireContext()), Toast.LENGTH_LONG).show();
                     adapter.setAllSelected(false);
                 });
             }
@@ -153,11 +181,12 @@ public class SearchFragment extends Fragment implements DecryptBridge.DecryptCal
 
         if (isAdded() && getContext() != null) {
             requireActivity().runOnUiThread(() -> {
-                Toast.makeText(requireContext(), String.format("正在解密(%d/%d)：%s", currentDecryptIndex, totalDecryptCount, currentItem.getFileName()), Toast.LENGTH_SHORT).show();
+                llProgressArea.setVisibility(View.VISIBLE);
+                tvDecryptStep.setText(String.format("正在解密(%d/%d)：%s", currentDecryptIndex, totalDecryptCount, currentItem.getFileName()));
+                decryptProgressBar.setProgress(0);
             });
         }
 
-        // 安全强转，避免空指针
         MainActivity activity = getActivity() instanceof MainActivity ? (MainActivity) getActivity() : null;
         if (activity != null) {
             activity.startDecrypt(currentItem.getFilePath(), currentItem.getFileName(), this);
@@ -167,14 +196,24 @@ public class SearchFragment extends Fragment implements DecryptBridge.DecryptCal
     }
 
     @Override
+    public void onDecryptProgress(int current, int total, int step) {
+        if (!isAdded() || getContext() == null) return;
+        requireActivity().runOnUiThread(() -> {
+            decryptProgressBar.setProgress(current);
+            if (step >= 0 && step < stepTexts.length) {
+                tvDecryptStep.setText(stepTexts[step]);
+            }
+        });
+    }
+
+    @Override
     public void onDecryptSuccess(String fileName, byte[] fileData) {
         if (!isAdded() || getContext() == null) {
             startDecryptQueue();
             return;
         }
-    
+
         try {
-            // 读取自定义存储路径
             String saveDirPath = SpUtils.getSavePath(requireContext());
             File saveDir = new File(saveDirPath);
             if (!saveDir.exists()) saveDir.mkdirs();
@@ -183,15 +222,12 @@ public class SearchFragment extends Fragment implements DecryptBridge.DecryptCal
             fos.write(fileData);
             fos.flush();
             fos.close();
-            // 刷新媒体库
             requireContext().sendBroadcast(new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, android.net.Uri.fromFile(outFile)));
 
-            // 提示完整存储路径
-            String finalPath = outFile.getAbsolutePath();
             requireActivity().runOnUiThread(() -> {
-                Toast.makeText(requireContext(), "解密成功！文件已保存到：\n" + finalPath, Toast.LENGTH_LONG).show();
+                Toast.makeText(requireContext(), "解密成功！文件已保存到：\n" + outFile.getAbsolutePath(), Toast.LENGTH_LONG).show();
             });
-    
+
         } catch (Exception e) {
             requireActivity().runOnUiThread(() -> {
                 Toast.makeText(requireContext(), "文件保存失败：" + e.getMessage(), Toast.LENGTH_SHORT).show();
@@ -200,20 +236,15 @@ public class SearchFragment extends Fragment implements DecryptBridge.DecryptCal
         startDecryptQueue();
     }
 
-
     @Override
     public void onDecryptFailed(String errorMsg) {
         if (isAdded() && getContext() != null) {
             requireActivity().runOnUiThread(() -> {
+                llProgressArea.setVisibility(View.GONE);
                 Toast.makeText(requireContext(), "解密失败：" + errorMsg, Toast.LENGTH_SHORT).show();
             });
         }
         startDecryptQueue();
-    }
-
-    @Override
-    public void onDecryptProgress(int current, int total) {
-        // 预留进度回调
     }
 
     @Override
@@ -222,7 +253,6 @@ public class SearchFragment extends Fragment implements DecryptBridge.DecryptCal
         loadMusicFileList();
     }
 
-    // 音乐文件数据类
     public static class MusicFileItem {
         private final String platform;
         private final String fileName;
@@ -243,7 +273,6 @@ public class SearchFragment extends Fragment implements DecryptBridge.DecryptCal
         public void setSelected(boolean selected) { isSelected = selected; }
     }
 
-    // 列表适配器
     public static class MusicAdapter extends RecyclerView.Adapter<MusicAdapter.VH> {
         private final List<MusicFileItem> itemList;
         private final OnItemActionListener listener;
@@ -313,7 +342,6 @@ public class SearchFragment extends Fragment implements DecryptBridge.DecryptCal
         }
     }
 
-    // 事件回调接口
     public interface OnItemActionListener {
         void onDecryptClick(MusicFileItem item);
         void onSelectChange(List<MusicFileItem> selectedList);

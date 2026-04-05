@@ -187,13 +187,16 @@ public class SearchFragment extends Fragment implements MainActivity.OnEngineSta
         btnRefreshScan.setEnabled(false);
         btnRefreshScan.setText("扫描中...");
         tvEmptyTip.setVisibility(View.GONE);
+        // 强制输出日志，确认扫描已触发
+        android.util.Log.d("MusicScanner", "===== 手动触发文件扫描 =====");
 
         Executors.newSingleThreadExecutor().execute(() -> {
             musicGroupMap.clear();
             musicGroupList.clear();
 
-            // 执行全量扫描
+            // 执行全量扫描，强制输出扫描结果
             List<FileScannerUtils.MusicFileInfo> allFiles = FileScannerUtils.scanAllMusicFiles();
+            android.util.Log.d("MusicScanner", "扫描完成，找到加密文件数：" + allFiles.size());
 
             // 按平台分组
             for (FileScannerUtils.MusicFileInfo fileInfo : allFiles) {
@@ -202,6 +205,7 @@ public class SearchFragment extends Fragment implements MainActivity.OnEngineSta
                     musicGroupMap.put(platform, new ArrayList<>());
                 }
                 musicGroupMap.get(platform).add(new MusicFileItem(platform, fileInfo.fileName, fileInfo.fullPath));
+                android.util.Log.d("MusicScanner", "找到文件：" + fileInfo.fileName + " | 路径：" + fileInfo.fullPath);
             }
 
             // 生成分类列表
@@ -219,13 +223,16 @@ public class SearchFragment extends Fragment implements MainActivity.OnEngineSta
                 // 空数据提示
                 if (musicGroupList.isEmpty()) {
                     tvEmptyTip.setVisibility(View.VISIBLE);
-                    tvEmptyTip.setText("未找到本地加密音乐文件");
+                    tvEmptyTip.setText("未找到本地加密音乐文件（日志已输出扫描结果）");
+                    android.util.Log.d("MusicScanner", "列表为空，已提示用户");
                 } else {
                     tvEmptyTip.setVisibility(View.GONE);
+                    android.util.Log.d("MusicScanner", "列表已刷新，显示文件数：" + musicGroupList.size());
                 }
             });
         });
     }
+
 
     private void startSingleDecrypt(MusicFileItem item) {
         if (mainActivity == null || mainActivity.getEngineState() != MainActivity.ENGINE_STATE_READY) {

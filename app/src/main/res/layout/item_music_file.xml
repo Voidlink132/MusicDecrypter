@@ -3,30 +3,26 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="horizontal"
-    android:padding="12dp"
+    android:paddingHorizontal="16dp"
+    android:paddingVertical="12dp"
     android:gravity="center_vertical">
-
-    <CheckBox
-        android:id="@+id/cb_select"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginEnd="8dp"/>
 
     <TextView
         android:id="@+id/tv_file_name"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:maxLines="2"
-        android:ellipsize="end"
-        android:textSize="14sp"/>
+        android:textSize="16sp"
+        android:textColor="#333333"
+        android:maxLines="1"
+        android:ellipsize="end"/>
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btn_decrypt"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="解密"
-        android:textSize="12sp"
-        android:minWidth="60dp"/>
+        android:text="下载"
+        android:backgroundTint="@color/purple_500"
+        android:paddingHorizontal="12dp"/>
 
 </LinearLayout>

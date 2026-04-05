@@ -37,7 +37,7 @@ public class SpUtils {
     }
 
     /**
-     * 默认保存路径：SD卡/MusicDecrypter
+     * 默认保存路径：SD卡/Music/MusicDecrypter（原有方法，保持不变）
      */
     private static String getDefaultSavePath() {
         File externalDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC);
@@ -46,5 +46,12 @@ public class SpUtils {
             saveDir.mkdirs();
         }
         return saveDir.getAbsolutePath();
+    }
+
+    /**
+     * 新增：兼容 SettingsFragment 的调用（方法名匹配 getDefaultPath()）
+     */
+    public static String getDefaultPath() {
+        return getDefaultSavePath();
     }
 }

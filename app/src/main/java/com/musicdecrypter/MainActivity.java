@@ -2,41 +2,37 @@ package com.musicdecrypter;
 
 import android.os.Bundle;
 import android.util.Log;
+import android.webkit.DownloadListener;
+import android.webkit.SslErrorHandler;
+import android.webkit.WebChromeClient;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
+import android.net.http.SslError;
+import android.widget.Toast;
+
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.viewpager2.widget.ViewPager2;
-import com.google.android.material.bottomnavigation.BottomNavigationView;
-import com.musicdecrypter.utils.MusicDecryptUtils;
-import com.musicdecrypter.utils.SpUtils;
 
-import java.util.ArrayList;
-import java.util.List;
+import com.google.android.material.bottomnavigation.BottomNavigationView;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MusicDecrypter_Main";
     private ViewPager2 viewPager;
     private BottomNavigationView bottomNav;
-
-    // 引擎状态常量（简化，仅用于状态提示）
-    public static final int ENGINE_STATE_IDLE = 0;
-    public static final int ENGINE_STATE_READY = 2;
-    private volatile int engineState = ENGINE_STATE_READY; // 纯Java解密无需初始化，直接就绪
-
-    // 状态监听列表
-    private final List<OnEngineStateChangeListener> stateListeners = new ArrayList<>();
-
-    // 引擎状态监听接口（保持兼容）
-    public interface OnEngineStateChangeListener {
-        void onEngineStateChange(int state, String message);
-    }
+    // 内嵌官方在线解密网页
+    public static final String ONLINE_DECRYPT_URL = "https://unlock-music.netlify.app/";
+    private WebView decryptWebView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         initBottomNav();
-        engineState = ENGINE_STATE_READY;
-        notifyStateChange(ENGINE_STATE_READY, "解密引擎就绪");
+        // 初始化WebView（全局唯一，避免重复创建）
+        initDecryptWebView();
     }
 
     private void initBottomNav() {
@@ -75,63 +71,99 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    // 对外提供解密方法（替换原WebView解密）
-    public void startDecrypt(String filePath, String fileName, DecryptCallback callback) {
-        if (engineState != ENGINE_STATE_READY) {
-            callback.onDecryptFailed("解密引擎未就绪");
-            return;
-        }
+    /**
+     * 初始化WebView：适配在线网页，支持文件上传、下载、JavaScript
+     */
+    private void initDecryptWebView() {
+        WebView.setWebContentsDebuggingEnabled(true);
+        decryptWebView = new WebView(getApplicationContext());
+        WebSettings webSettings = decryptWebView.getSettings();
 
-        // 子线程执行解密（避免阻塞主线程）
-        new Thread(() -> {
-            try {
-                callback.onDecryptProgress(10, 100, 1); // 读取文件进度
-                // 调用纯Java解密工具
-                MusicDecryptUtils.DecryptResult result = MusicDecryptUtils.decrypt(filePath);
-                
-                callback.onDecryptProgress(50, 100, 3); // 解密中进度
-                // 保存文件（使用设置页的保存路径）
-                String saveDir = SpUtils.getSavePath(this);
-                MusicDecryptUtils.saveDecryptResult(result, saveDir);
-                
-                callback.onDecryptProgress(100, 100, 4); // 保存完成
-                callback.onDecryptSuccess(result.getOutFileName(), result.getDecryptedData());
-            } catch (Exception e) {
-                callback.onDecryptFailed("解密失败：" + e.getMessage());
+        // 核心配置（确保网页正常运行）
+        webSettings.setJavaScriptEnabled(true); // 必须启用JS
+        webSettings.setJavaScriptCanOpenWindowsAutomatically(true);
+        webSettings.setDomStorageEnabled(true); // 支持本地存储
+        webSettings.setAllowFileAccess(true); // 允许访问本地文件（上传用）
+        webSettings.setAllowContentAccess(true);
+        webSettings.setAllowFileAccessFromFileURLs(true);
+        webSettings.setAllowUniversalAccessFromFileURLs(true);
+        webSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE); // 支持混合内容
+        webSettings.setLoadWithOverviewMode(true);
+        webSettings.setUseWideViewPort(true);
+        webSettings.setCacheMode(WebSettings.LOAD_NO_CACHE); // 禁用缓存，确保加载最新网页
+
+        // 网页加载进度监听
+        decryptWebView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public void onProgressChanged(WebView view, int newProgress) {
+                super.onProgressChanged(view, newProgress);
+                Log.d(TAG, "网页加载进度：" + newProgress + "%");
             }
-        }).start();
+        });
+
+        // 网页加载生命周期+SSL错误处理
+        decryptWebView.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
+                super.onPageStarted(view, url, favicon);
+                Log.d(TAG, "开始加载网页：" + url);
+            }
+
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                Log.d(TAG, "网页加载完成：" + url);
+            }
+
+            @Override
+            public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
+                super.onReceivedError(view, errorCode, description, failingUrl);
+                Log.e(TAG, "网页加载错误：" + description + "（错误码：" + errorCode + "）");
+                Toast.makeText(MainActivity.this, "网页加载失败，请检查网络", Toast.LENGTH_SHORT).show();
+            }
+
+            @Override
+            public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
+                handler.proceed(); // 忽略SSL错误（避免网页因证书问题无法加载）
+            }
+
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                // 拦截网页跳转，在当前WebView内打开
+                view.loadUrl(request.getUrl().toString());
+                return true;
+            }
+        });
+
+        // 支持文件下载（解密后下载文件）
+        decryptWebView.setDownloadListener((url, userAgent, contentDisposition, mimetype, contentLength) -> {
+            Log.d(TAG, "开始下载文件：" + url);
+            // 调用系统下载管理器下载
+            android.content.Intent intent = new android.content.Intent(android.content.Intent.ACTION_VIEW);
+            intent.setData(android.net.Uri.parse(url));
+            startActivity(intent);
+        });
+
+        // 预加载在线网页
+        decryptWebView.loadUrl(ONLINE_DECRYPT_URL);
     }
 
-    // 解密回调接口（保持与原桥接对象一致）
-    public interface DecryptCallback {
-        void onDecryptProgress(int current, int total, int step);
-        void onDecryptSuccess(String fileName, byte[] fileData);
-        void onDecryptFailed(String errorMsg);
+    /**
+     * 对外提供WebView实例（供DecryptFragment使用）
+     */
+    public WebView getDecryptWebView() {
+        return decryptWebView;
     }
 
-    // 状态监听相关方法（保持兼容）
-    public void addEngineStateListener(OnEngineStateChangeListener listener) {
-        if (!stateListeners.contains(listener)) {
-            stateListeners.add(listener);
-            listener.onEngineStateChange(engineState, getStateMessage());
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        // 释放WebView资源
+        if (decryptWebView != null) {
+            decryptWebView.stopLoading();
+            decryptWebView.removeAllViews();
+            decryptWebView.destroy();
+            decryptWebView = null;
         }
-    }
-
-    public void removeEngineStateListener(OnEngineStateChangeListener listener) {
-        stateListeners.remove(listener);
-    }
-
-    private void notifyStateChange(int state, String message) {
-        for (OnEngineStateChangeListener listener : stateListeners) {
-            listener.onEngineStateChange(state, message);
-        }
-    }
-
-    private String getStateMessage() {
-        return engineState == ENGINE_STATE_READY ? "解密引擎就绪" : "就绪";
-    }
-
-    public int getEngineState() {
-        return engineState;
     }
 }

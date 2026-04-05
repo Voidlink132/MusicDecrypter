@@ -32,7 +32,7 @@ public class MainActivity extends AppCompatActivity {
     private BottomNavigationView bottomNav;
     private WebView decryptWebView;
     private DecryptBridge currentDecryptBridge;
-    // 本地离线解密页面，彻底解决在线加载问题
+    // 本地离线解密页面
     private static final String DECRYPT_URL = "file:///android_asset/index.html";
     // 引擎状态常量
     public static final int ENGINE_STATE_IDLE = 0;
@@ -45,7 +45,7 @@ public class MainActivity extends AppCompatActivity {
     // 状态监听列表
     private final List<OnEngineStateChangeListener> stateListeners = new ArrayList<>();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
-    // 本地页面加载超时3秒，极速兜底
+    // 本地页面加载超时3秒
     private static final long LOAD_TIMEOUT = 3 * 1000L;
     private Runnable timeoutRunnable;
 
@@ -60,28 +60,22 @@ public class MainActivity extends AppCompatActivity {
         Log.d(TAG, "===== MainActivity onCreate 启动 =====");
         setContentView(R.layout.activity_main);
         initBottomNav();
-        // 全局只初始化一次WebView，APP启动就执行
         if (decryptWebView == null) {
             Log.d(TAG, "开始初始化WebView解密引擎");
             initDecryptWebView();
-        } else {
-            Log.d(TAG, "WebView引擎已初始化，当前状态：" + engineState);
         }
-        Log.d(TAG, "===== MainActivity onCreate 完成 =====");
     }
 
     private void initBottomNav() {
-        Log.d(TAG, "初始化底部导航栏");
         viewPager = findViewById(R.id.view_pager);
         bottomNav = findViewById(R.id.bottom_nav);
         FragmentPagerAdapter adapter = new FragmentPagerAdapter(this);
         viewPager.setAdapter(adapter);
         viewPager.setUserInputEnabled(false);
-        viewPager.setOffscreenPageLimit(2); // 预加载所有页面，避免切换时重新初始化
+        viewPager.setOffscreenPageLimit(2);
 
         bottomNav.setOnItemSelectedListener(item -> {
             int itemId = item.getItemId();
-            Log.d(TAG, "底部导航切换，itemId：" + itemId);
             if (itemId == R.id.nav_search) {
                 viewPager.setCurrentItem(0, false);
                 return true;
@@ -99,7 +93,6 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onPageSelected(int position) {
                 super.onPageSelected(position);
-                Log.d(TAG, "ViewPager页面切换，position：" + position);
                 switch (position) {
                     case 0: bottomNav.setSelectedItemId(R.id.nav_search); break;
                     case 1: bottomNav.setSelectedItemId(R.id.nav_decrypt); break;
@@ -114,7 +107,7 @@ public class MainActivity extends AppCompatActivity {
         decryptWebView = new WebView(getApplicationContext());
         WebSettings webSettings = decryptWebView.getSettings();
 
-        // 适配本地assets加载的WebView核心配置
+        // 核心WebView配置，确保桥接对象正常注入
         webSettings.setJavaScriptEnabled(true);
         webSettings.setJavaScriptCanOpenWindowsAutomatically(true);
         webSettings.setDomStorageEnabled(true);
@@ -147,7 +140,7 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        // 本地页面加载生命周期监听
+        // 【核心修复】页面加载生命周期监听，提前注入桥接对象
         decryptWebView.setWebViewClient(new WebViewClient() {
             @Override
             public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
@@ -156,6 +149,7 @@ public class MainActivity extends AppCompatActivity {
                 engineState = ENGINE_STATE_LOADING;
                 startLoadTimeout();
                 notifyStateChange(ENGINE_STATE_LOADING, "正在初始化解密引擎...");
+                // 页面开始加载时，先移除旧的桥接对象，避免残留
                 decryptWebView.removeJavascriptInterface("AndroidDecryptBridge");
             }
 
@@ -164,12 +158,18 @@ public class MainActivity extends AppCompatActivity {
                 super.onPageFinished(view, url);
                 Log.d(TAG, "页面加载完成：" + url);
                 cancelTimeout();
-                // 延迟100ms确保JS环境完全就绪
+
+                // 【核心修复】页面加载完成后，立即注入桥接对象，提前挂载到JS上下文
                 mainHandler.postDelayed(() -> {
+                    // 初始化空的桥接对象，提前挂载到window上
+                    currentDecryptBridge = new DecryptBridge(null);
+                    decryptWebView.addJavascriptInterface(currentDecryptBridge, "AndroidDecryptBridge");
+                    Log.d(TAG, "桥接对象已提前注入，挂载到JS上下文");
+
                     engineState = ENGINE_STATE_READY;
                     notifyStateChange(ENGINE_STATE_READY, "解密引擎就绪");
                     Log.d(TAG, "===== 本地解密引擎加载完成，就绪 =====");
-                }, 100);
+                }, 200);
             }
 
             @Override
@@ -193,8 +193,6 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        // 加载本地assets里的离线解密页面
-        Log.d(TAG, "开始加载本地页面：" + DECRYPT_URL);
         decryptWebView.loadUrl(DECRYPT_URL);
     }
 
@@ -256,7 +254,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // 对外解密方法
+    // 【核心修复】对外解密方法，更新桥接对象的回调，不重复注入
     public void startDecrypt(String filePath, String fileName, DecryptBridge.DecryptCallback callback) {
         Log.d(TAG, "收到解密请求，文件名：" + fileName);
         if (engineState != ENGINE_STATE_READY) {
@@ -269,24 +267,38 @@ public class MainActivity extends AppCompatActivity {
         cancelTimeout();
         startLoadTimeout();
 
-        // 每次解密前，重新注入桥接对象
-        decryptWebView.removeJavascriptInterface("AndroidDecryptBridge");
-        currentDecryptBridge = new DecryptBridge(callback);
-        decryptWebView.addJavascriptInterface(currentDecryptBridge, "AndroidDecryptBridge");
-        Log.d(TAG, "桥接对象已注入，开始解密");
+        // 【核心修复】不重复注入，仅更新当前桥接对象的回调
+        if (currentDecryptBridge != null) {
+            currentDecryptBridge.updateCallback(callback);
+            Log.d(TAG, "桥接对象回调已更新，开始解密");
+        } else {
+            // 兜底：如果桥接对象丢失，重新注入
+            currentDecryptBridge = new DecryptBridge(callback);
+            decryptWebView.addJavascriptInterface(currentDecryptBridge, "AndroidDecryptBridge");
+            Log.d(TAG, "桥接对象丢失，重新注入完成");
+        }
 
         callback.onDecryptProgress(10, 100, DecryptBridge.STEP_INIT_ENGINE);
         String mimeType = getMimeType(fileName);
         injectDecryptJs(filePath, fileName, mimeType);
     }
 
-    // 适配本地页面的解密JS逻辑
+    // 【核心修复】解密JS逻辑，先等待桥接对象存在，再执行解密
     private void injectDecryptJs(String filePath, String fileName, String mimeType) {
         String js = "(async ()=>{"
                 + "try{"
-                + "if(typeof AndroidDecryptBridge === 'undefined') {"
-                + "throw new Error('AndroidDecryptBridge 桥接对象未找到');"
+                + "// 【核心修复】循环等待桥接对象挂载到window上，最多等待2秒"
+                + "let waitCount = 0;"
+                + "const maxWait = 20;"
+                + "while(typeof AndroidDecryptBridge === 'undefined' && waitCount < maxWait){"
+                + "await new Promise(resolve => setTimeout(resolve, 100));"
+                + "waitCount++;"
                 + "}"
+                + "// 再次校验，不存在直接抛出错误"
+                + "if(typeof AndroidDecryptBridge === 'undefined') {"
+                + "throw new Error('等待超时，AndroidDecryptBridge 桥接对象未找到');"
+                + "}"
+                + "console.log('桥接对象已找到，开始解密');"
                 + "const filePath = '" + filePath.replace("'", "\\'") + "';"
                 + "const fileName = '" + fileName.replace("'", "\\'") + "';"
                 + "const mimeType = '" + mimeType + "';"

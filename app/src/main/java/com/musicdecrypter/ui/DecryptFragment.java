@@ -1,6 +1,7 @@
 package com.musicdecrypter.ui;
 
 import android.app.Activity;
+import android.content.ContentResolver;
 import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
@@ -10,7 +11,6 @@ import android.provider.OpenableColumns;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.webkit.MimeTypeMap;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
@@ -21,9 +21,9 @@ import androidx.fragment.app.Fragment;
 
 import com.musicdecrypter.MainActivity;
 import com.musicdecrypter.R;
-import com.musicdecrypter.utils.SpUtils;
 import com.musicdecrypter.databinding.FragmentDecryptBinding;
 import com.musicdecrypter.utils.DecryptBridge;
+import com.musicdecrypter.utils.SpUtils;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -39,6 +39,17 @@ public class DecryptFragment extends Fragment implements DecryptBridge.DecryptCa
     private final AtomicInteger successCount = new AtomicInteger(0);
     private final AtomicInteger failedCount = new AtomicInteger(0);
     private int totalFileCount = 0;
+    private String currentFileName = "";
+
+    // 步骤文本映射
+    private final String[] stepTexts = {
+            "就绪",
+            "正在读取文件...",
+            "正在初始化解密引擎...",
+            "正在解密文件...",
+            "正在保存文件...",
+            "解密完成"
+    };
 
     private final ActivityResultLauncher<Intent> fileChooserLauncher = registerForActivityResult(
             new ActivityResultContracts.StartActivityForResult(),
@@ -95,9 +106,10 @@ public class DecryptFragment extends Fragment implements DecryptBridge.DecryptCa
         if (pendingFileUris.isEmpty()) {
             if (isAdded() && getContext() != null) {
                 requireActivity().runOnUiThread(() -> {
-                    binding.progressBar.setVisibility(View.GONE);
+                    binding.llProgressArea.setVisibility(View.GONE);
                     binding.tvStatus.setText(String.format("解密完成！成功：%d 个，失败：%d 个", successCount.get(), failedCount.get()));
                     binding.btnDownload.setVisibility(View.VISIBLE);
+                    binding.btnSelectFile.setEnabled(true);
                 });
             }
             return;
@@ -107,19 +119,24 @@ public class DecryptFragment extends Fragment implements DecryptBridge.DecryptCa
         int currentIndex = totalFileCount - pendingFileUris.size();
 
         try {
-            String fileName = getFileNameFromUri(fileUri);
-            String filePath = getFilePathFromUri(fileUri);
+            currentFileName = getFileNameFromUri(fileUri);
+            byte[] fileData = readFileDataFromUri(fileUri);
 
             if (isAdded() && getContext() != null) {
                 requireActivity().runOnUiThread(() -> {
-                    binding.progressBar.setVisibility(View.VISIBLE);
-                    binding.tvStatus.setText(String.format("正在解密(%d/%d)：%s", currentIndex, totalFileCount, fileName));
+                    binding.btnSelectFile.setEnabled(false);
+                    binding.btnDownload.setVisibility(View.GONE);
+                    binding.llProgressArea.setVisibility(View.VISIBLE);
+                    binding.tvDecryptStep.setText(String.format("正在解密(%d/%d)：%s", currentIndex, totalFileCount, currentFileName));
+                    binding.decryptProgressBar.setProgress(0);
+                    binding.tvStatus.setText("解密中...");
                 });
             }
 
             MainActivity activity = getActivity() instanceof MainActivity ? (MainActivity) getActivity() : null;
             if (activity != null) {
-                activity.startDecrypt(filePath, fileName, this);
+                File tempFile = createTempFile(fileData, currentFileName);
+                activity.startDecrypt(tempFile.getAbsolutePath(), currentFileName, this);
             } else {
                 startDecryptQueue();
             }
@@ -133,6 +150,47 @@ public class DecryptFragment extends Fragment implements DecryptBridge.DecryptCa
             }
             startDecryptQueue();
         }
+    }
+
+    private byte[] readFileDataFromUri(Uri uri) throws Exception {
+        ContentResolver resolver = requireContext().getContentResolver();
+        InputStream inputStream = resolver.openInputStream(uri);
+        if (inputStream == null) throw new Exception("无法打开文件");
+
+        byte[] buffer = new byte[1024 * 1024];
+        java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
+        int read;
+        while ((read = inputStream.read(buffer)) != -1) {
+            bos.write(buffer, 0, read);
+        }
+        inputStream.close();
+        return bos.toByteArray();
+    }
+
+    private File createTempFile(byte[] data, String fileName) throws Exception {
+        File tempDir = new File(requireContext().getCacheDir(), "decrypt_temp");
+        if (!tempDir.exists()) tempDir.mkdirs();
+        File[] oldFiles = tempDir.listFiles();
+        if (oldFiles != null) {
+            for (File f : oldFiles) f.delete();
+        }
+        File tempFile = new File(tempDir, fileName);
+        FileOutputStream fos = new FileOutputStream(tempFile);
+        fos.write(data);
+        fos.flush();
+        fos.close();
+        return tempFile;
+    }
+
+    @Override
+    public void onDecryptProgress(int current, int total, int step) {
+        if (!isAdded() || getContext() == null) return;
+        requireActivity().runOnUiThread(() -> {
+            binding.decryptProgressBar.setProgress(current);
+            if (step >= 0 && step < stepTexts.length) {
+                binding.tvDecryptStep.setText(stepTexts[step]);
+            }
+        });
     }
 
     @Override
@@ -153,12 +211,11 @@ public class DecryptFragment extends Fragment implements DecryptBridge.DecryptCa
             fos.close();
             requireContext().sendBroadcast(new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, android.net.Uri.fromFile(outFile)));
 
-        // 提示完整存储路径
-            String finalPath = outFile.getAbsolutePath();
+            successCount.incrementAndGet();
             requireActivity().runOnUiThread(() -> {
-                Toast.makeText(requireContext(), "解密成功！文件已保存到：\n" + finalPath, Toast.LENGTH_LONG).show();
+                Toast.makeText(requireContext(), "解密成功！文件已保存到：\n" + outFile.getAbsolutePath(), Toast.LENGTH_LONG).show();
             });
-    
+
         } catch (Exception e) {
             failedCount.incrementAndGet();
             requireActivity().runOnUiThread(() -> {
@@ -170,17 +227,14 @@ public class DecryptFragment extends Fragment implements DecryptBridge.DecryptCa
 
     @Override
     public void onDecryptFailed(String errorMsg) {
+        failedCount.incrementAndGet();
         if (isAdded() && getContext() != null) {
             requireActivity().runOnUiThread(() -> {
+                binding.llProgressArea.setVisibility(View.GONE);
                 Toast.makeText(requireContext(), "解密失败：" + errorMsg, Toast.LENGTH_SHORT).show();
             });
         }
         startDecryptQueue();
-    }
-
-    @Override
-    public void onDecryptProgress(int current, int total) {
-        // 预留进度回调
     }
 
     private String getFileNameFromUri(Uri uri) {
@@ -198,32 +252,6 @@ public class DecryptFragment extends Fragment implements DecryptBridge.DecryptCa
         return name;
     }
 
-    private String getFilePathFromUri(Uri uri) {
-        String path = "";
-        if ("content".equals(uri.getScheme())) {
-            try (Cursor c = requireContext().getContentResolver().query(uri, new String[]{"_data"}, null, null, null)) {
-                if (c != null && c.moveToFirst()) {
-                    int idx = c.getColumnIndex("_data");
-                    if (idx > -1) path = c.getString(idx);
-                }
-            }
-        } else if (uri.getPath() != null) {
-            path = uri.getPath();
-        }
-        return path;
-    }
-
-    private void saveToDownloadDir(String fileName, byte[] data) throws Exception {
-        File root = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "MusicDecrypter");
-        if (!root.exists()) root.mkdirs();
-        File outFile = new File(root, fileName);
-        FileOutputStream fos = new FileOutputStream(outFile);
-        fos.write(data);
-        fos.flush();
-        fos.close();
-        requireContext().sendBroadcast(new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, android.net.Uri.fromFile(outFile)));
-    }
-
     private void openSaveDir() {
         if (!isAdded() || getContext() == null) return;
         String dirPath = SpUtils.getSavePath(requireContext());
@@ -235,10 +263,16 @@ public class DecryptFragment extends Fragment implements DecryptBridge.DecryptCa
         startActivity(Intent.createChooser(intent, "打开解密文件夹"));
     }
 
-
     @Override
     public void onDestroyView() {
         super.onDestroyView();
         binding = null;
+        File tempDir = new File(requireContext().getCacheDir(), "decrypt_temp");
+        if (tempDir.exists()) {
+            File[] files = tempDir.listFiles();
+            if (files != null) {
+                for (File f : files) f.delete();
+            }
+        }
     }
 }

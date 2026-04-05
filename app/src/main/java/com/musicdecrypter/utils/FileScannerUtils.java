@@ -26,50 +26,64 @@ public class FileScannerUtils {
         public String getPath() { return path; }
     }
 
-    // 全量覆盖：Download、Android、Music三大根目录，所有主流音乐APP路径
+    // 全量覆盖所有路径，兼容大小写、不同APP版本
     public static final List<MusicDir> MUSIC_DIR_LIST = new ArrayList<>();
     static {
-        String rootPath = Environment.getExternalStorageDirectory().getAbsolutePath();
+        // 优先使用绝对路径，兼容高版本Android
+        String absoluteRoot = "/storage/emulated/0";
+        String envRoot = Environment.getExternalStorageDirectory().getAbsolutePath();
 
         // ==================== 网易云音乐 全路径 ====================
-        MUSIC_DIR_LIST.add(new MusicDir("网易云音乐", rootPath + "/Download/netease/cloudmusic/Music/"));
-        MUSIC_DIR_LIST.add(new MusicDir("网易云音乐", rootPath + "/Download/Netease/CloudMusic/Music/"));
-        MUSIC_DIR_LIST.add(new MusicDir("网易云音乐", rootPath + "/netease/cloudmusic/Music/"));
-        MUSIC_DIR_LIST.add(new MusicDir("网易云音乐", rootPath + "/Netease/CloudMusic/Music/"));
-        MUSIC_DIR_LIST.add(new MusicDir("网易云音乐", rootPath + "/Music/netease/cloudmusic/"));
-        MUSIC_DIR_LIST.add(new MusicDir("网易云音乐", rootPath + "/Android/data/com.netease.cloudmusic/files/Download/"));
-        MUSIC_DIR_LIST.add(new MusicDir("网易云音乐", rootPath + "/Android/data/com.netease.cloudmusic/cache/Download/"));
+        addMusicDir("网易云音乐", absoluteRoot + "/Download/netease/cloudmusic/Music/");
+        addMusicDir("网易云音乐", absoluteRoot + "/Download/Netease/CloudMusic/Music/");
+        addMusicDir("网易云音乐", absoluteRoot + "/netease/cloudmusic/Music/");
+        addMusicDir("网易云音乐", absoluteRoot + "/Netease/CloudMusic/Music/");
+        addMusicDir("网易云音乐", absoluteRoot + "/Music/netease/cloudmusic/");
+        addMusicDir("网易云音乐", absoluteRoot + "/Android/data/com.netease.cloudmusic/files/Download/");
+        addMusicDir("网易云音乐", envRoot + "/Download/netease/cloudmusic/Music/");
+        addMusicDir("网易云音乐", envRoot + "/Netease/CloudMusic/Music/");
 
         // ==================== QQ音乐 全路径 ====================
-        MUSIC_DIR_LIST.add(new MusicDir("QQ音乐", rootPath + "/Music/qqmusic/song/"));
-        MUSIC_DIR_LIST.add(new MusicDir("QQ音乐", rootPath + "/QQMusic/song/"));
-        MUSIC_DIR_LIST.add(new MusicDir("QQ音乐", rootPath + "/Download/qqmusic/song/"));
-        MUSIC_DIR_LIST.add(new MusicDir("QQ音乐", rootPath + "/tencent/QQMusic/song/"));
-        MUSIC_DIR_LIST.add(new MusicDir("QQ音乐", rootPath + "/Android/data/com.tencent.qqmusic/files/Music/"));
-        MUSIC_DIR_LIST.add(new MusicDir("QQ音乐", rootPath + "/Android/data/com.tencent.qqmusic/cache/song/"));
+        addMusicDir("QQ音乐", absoluteRoot + "/Music/qqmusic/song/");
+        addMusicDir("QQ音乐", absoluteRoot + "/QQMusic/song/");
+        addMusicDir("QQ音乐", absoluteRoot + "/Download/qqmusic/song/");
+        addMusicDir("QQ音乐", absoluteRoot + "/tencent/QQMusic/song/");
+        addMusicDir("QQ音乐", absoluteRoot + "/Android/data/com.tencent.qqmusic/files/Music/");
+        addMusicDir("QQ音乐", envRoot + "/Music/qqmusic/song/");
+        addMusicDir("QQ音乐", envRoot + "/QQMusic/song/");
 
         // ==================== 酷狗音乐 全路径 ====================
-        MUSIC_DIR_LIST.add(new MusicDir("酷狗音乐", rootPath + "/Download/kgmusic/download/"));
-        MUSIC_DIR_LIST.add(new MusicDir("酷狗音乐", rootPath + "/KuGou/download/"));
-        MUSIC_DIR_LIST.add(new MusicDir("酷狗音乐", rootPath + "/Music/kgmusic/"));
-        MUSIC_DIR_LIST.add(new MusicDir("酷狗音乐", rootPath + "/Android/data/com.kugou.android/files/download/"));
-        MUSIC_DIR_LIST.add(new MusicDir("酷狗音乐", rootPath + "/Android/data/com.kugou.android/cache/song/"));
+        addMusicDir("酷狗音乐", absoluteRoot + "/Download/kgmusic/download/");
+        addMusicDir("酷狗音乐", absoluteRoot + "/KuGou/download/");
+        addMusicDir("酷狗音乐", absoluteRoot + "/Music/kgmusic/");
+        addMusicDir("酷狗音乐", absoluteRoot + "/Android/data/com.kugou.android/files/download/");
+        addMusicDir("酷狗音乐", envRoot + "/Download/kgmusic/download/");
+        addMusicDir("酷狗音乐", envRoot + "/KuGou/download/");
 
         // ==================== 酷我音乐 全路径 ====================
-        MUSIC_DIR_LIST.add(new MusicDir("酷我音乐", rootPath + "/kuwo/download/music/"));
-        MUSIC_DIR_LIST.add(new MusicDir("酷我音乐", rootPath + "/Download/kuwo/music/"));
-        MUSIC_DIR_LIST.add(new MusicDir("酷我音乐", rootPath + "/Music/kuwo/"));
-        MUSIC_DIR_LIST.add(new MusicDir("酷我音乐", rootPath + "/Android/data/cn.kuwo.player/files/download/"));
+        addMusicDir("酷我音乐", absoluteRoot + "/kuwo/download/music/");
+        addMusicDir("酷我音乐", absoluteRoot + "/Download/kuwo/music/");
+        addMusicDir("酷我音乐", absoluteRoot + "/Music/kuwo/");
+        addMusicDir("酷我音乐", absoluteRoot + "/Android/data/cn.kuwo.player/files/download/");
 
         // ==================== 咪咕音乐 全路径 ====================
-        MUSIC_DIR_LIST.add(new MusicDir("咪咕音乐", rootPath + "/MiGu/Song/"));
-        MUSIC_DIR_LIST.add(new MusicDir("咪咕音乐", rootPath + "/Download/migu/music/"));
-        MUSIC_DIR_LIST.add(new MusicDir("咪咕音乐", rootPath + "/Music/migu/"));
-        MUSIC_DIR_LIST.add(new MusicDir("咪咕音乐", rootPath + "/Android/data/cmccwm.mobilemusic/files/download/"));
+        addMusicDir("咪咕音乐", absoluteRoot + "/MiGu/Song/");
+        addMusicDir("咪咕音乐", absoluteRoot + "/Download/migu/music/");
+        addMusicDir("咪咕音乐", absoluteRoot + "/Music/migu/");
+        addMusicDir("咪咕音乐", absoluteRoot + "/Android/data/cmccwm.mobilemusic/files/download/");
 
         // ==================== 通用兜底目录 ====================
-        MUSIC_DIR_LIST.add(new MusicDir("下载目录", rootPath + "/Download/"));
-        MUSIC_DIR_LIST.add(new MusicDir("音乐目录", rootPath + "/Music/"));
+        addMusicDir("下载目录", absoluteRoot + "/Download/");
+        addMusicDir("音乐目录", absoluteRoot + "/Music/");
+        addMusicDir("根目录", absoluteRoot + "/");
+    }
+
+    // 去重添加目录
+    private static void addMusicDir(String name, String path) {
+        for (MusicDir dir : MUSIC_DIR_LIST) {
+            if (dir.getPath().equals(path)) return;
+        }
+        MUSIC_DIR_LIST.add(new MusicDir(name, path));
     }
 
     // 支持的全量加密格式后缀
@@ -92,22 +106,23 @@ public class FileScannerUtils {
         }
     }
 
-    // 核心：带自动去重、日志调试的全量扫描
+    // 核心扫描方法
     public static List<MusicFileInfo> scanAllMusicFiles() {
         Set<String> scannedFilePaths = new HashSet<>();
         List<MusicFileInfo> resultList = new ArrayList<>();
 
-        Log.d(TAG, "开始扫描音乐文件，共配置" + MUSIC_DIR_LIST.size() + "个目录");
+        Log.d(TAG, "===== 开始扫描音乐文件 =====");
+        Log.d(TAG, "共配置扫描目录数量：" + MUSIC_DIR_LIST.size());
 
         for (MusicDir dir : MUSIC_DIR_LIST) {
             File targetDir = new File(dir.getPath());
-            // 目录校验：是否存在、是否是目录、是否可读
+            // 目录校验
             if (!targetDir.exists()) {
                 Log.d(TAG, "目录不存在：" + dir.getPath());
                 continue;
             }
             if (!targetDir.isDirectory()) {
-                Log.d(TAG, "不是目录：" + dir.getPath());
+                Log.d(TAG, "不是有效目录：" + dir.getPath());
                 continue;
             }
             if (!targetDir.canRead()) {
@@ -117,7 +132,7 @@ public class FileScannerUtils {
 
             // 扫描该目录
             List<MusicFileInfo> dirFiles = scanSingleDir(dir);
-            Log.d(TAG, "目录【" + dir.getName() + "】扫描到" + dirFiles.size() + "个文件，路径：" + dir.getPath());
+            Log.d(TAG, "平台【" + dir.getName() + "】 | 路径：" + dir.getPath() + " | 扫描到文件数：" + dirFiles.size());
 
             // 去重添加
             for (MusicFileInfo file : dirFiles) {
@@ -128,7 +143,8 @@ public class FileScannerUtils {
             }
         }
 
-        Log.d(TAG, "扫描完成，共去重后得到" + resultList.size() + "个加密音乐文件");
+        Log.d(TAG, "===== 扫描完成 =====");
+        Log.d(TAG, "去重后总文件数：" + resultList.size());
         return resultList;
     }
 

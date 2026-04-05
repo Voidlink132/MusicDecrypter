@@ -8,7 +8,6 @@ import android.provider.Settings;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.CheckBox;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -30,24 +29,25 @@ import com.musicdecrypter.utils.SpUtils;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
-public class SearchFragment extends Fragment implements DecryptBridge.DecryptCallback {
+public class SearchFragment extends Fragment implements MainActivity.OnEngineStateChangeListener, DecryptBridge.DecryptCallback {
 
     private LinearLayout llProgressArea;
     private TextView tvDecryptStep;
     private ProgressBar decryptProgressBar;
-    private CheckBox cbSelectAll;
-    private MaterialButton btnBatchDecrypt;
     private RecyclerView rvMusicFiles;
-    private MusicAdapter adapter;
+    private MusicGroupAdapter adapter;
 
-    private final List<MusicFileItem> musicFileList = new ArrayList<>();
+    private final Map<String, List<MusicFileItem>> musicGroupMap = new HashMap<>();
+    private final List<MusicGroupItem> musicGroupList = new ArrayList<>();
     private final List<MusicFileItem> pendingDecryptList = new ArrayList<>();
     private int currentDecryptIndex = 0;
     private int totalDecryptCount = 0;
+    private MainActivity mainActivity;
 
-    // 步骤文本映射
     private final String[] stepTexts = {
             "就绪",
             "正在读取文件...",
@@ -66,47 +66,67 @@ public class SearchFragment extends Fragment implements DecryptBridge.DecryptCal
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        // 绑定进度控件
+        // 绑定控件
         llProgressArea = view.findViewById(R.id.ll_progress_area);
         tvDecryptStep = view.findViewById(R.id.tv_decrypt_step);
         decryptProgressBar = view.findViewById(R.id.decrypt_progress_bar);
-        // 绑定原有控件
-        cbSelectAll = view.findViewById(R.id.cb_select_all);
-        btnBatchDecrypt = view.findViewById(R.id.btn_batch_decrypt);
         rvMusicFiles = view.findViewById(R.id.rv_music_files);
 
+        // 初始化分类列表
         rvMusicFiles.setLayoutManager(new LinearLayoutManager(requireContext()));
-        adapter = new MusicAdapter(musicFileList, new OnItemActionListener() {
-            @Override
-            public void onDecryptClick(MusicFileItem item) {
-                startSingleDecrypt(item);
-            }
-
-            @Override
-            public void onSelectChange(List<MusicFileItem> selectedList) {
-                boolean hasSelected = !selectedList.isEmpty();
-                btnBatchDecrypt.setEnabled(hasSelected);
-                cbSelectAll.setChecked(selectedList.size() == musicFileList.size() && !musicFileList.isEmpty());
-            }
+        adapter = new MusicGroupAdapter(musicGroupList, item -> {
+            startSingleDecrypt(item);
         });
         rvMusicFiles.setAdapter(adapter);
 
-        cbSelectAll.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            if (buttonView.isPressed()) {
-                adapter.setAllSelected(isChecked);
-            }
-        });
-
-        btnBatchDecrypt.setOnClickListener(v -> {
-            List<MusicFileItem> selected = new ArrayList<>();
-            for (MusicFileItem item : musicFileList) {
-                if (item.isSelected()) selected.add(item);
-            }
-            startBatchDecrypt(selected);
-        });
-
         checkStoragePermission();
         loadMusicFileList();
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+        if (getActivity() instanceof MainActivity) {
+            mainActivity = (MainActivity) getActivity();
+            mainActivity.addEngineStateListener(this);
+        }
+    }
+
+    @Override
+    public void onStop() {
+        super.onStop();
+        if (mainActivity != null) {
+            mainActivity.removeEngineStateListener(this);
+        }
+    }
+
+    // 引擎状态回调，解决重复初始化
+    @Override
+    public void onEngineStateChange(int state, String message) {
+        if (!isAdded() || getContext() == null) return;
+        requireActivity().runOnUiThread(() -> {
+            switch (state) {
+                case MainActivity.ENGINE_STATE_LOADING:
+                    llProgressArea.setVisibility(View.VISIBLE);
+                    tvDecryptStep.setText(message);
+                    decryptProgressBar.setIndeterminate(true);
+                    break;
+                case MainActivity.ENGINE_STATE_READY:
+                    llProgressArea.setVisibility(View.GONE);
+                    decryptProgressBar.setIndeterminate(false);
+                    decryptProgressBar.setProgress(0);
+                    Toast.makeText(requireContext(), "解密引擎就绪", Toast.LENGTH_SHORT).show();
+                    break;
+                case MainActivity.ENGINE_STATE_ERROR:
+                case MainActivity.ENGINE_STATE_TIMEOUT:
+                    llProgressArea.setVisibility(View.VISIBLE);
+                    tvDecryptStep.setText(message);
+                    decryptProgressBar.setIndeterminate(false);
+                    decryptProgressBar.setProgress(0);
+                    Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show();
+                    break;
+            }
+        });
     }
 
     private void checkStoragePermission() {
@@ -115,36 +135,34 @@ public class SearchFragment extends Fragment implements DecryptBridge.DecryptCal
                 Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
                 intent.setData(android.net.Uri.parse("package:" + requireContext().getPackageName()));
                 startActivity(intent);
-                Toast.makeText(requireContext(), "请授予全部文件访问权限，否则无法读取音乐文件", Toast.LENGTH_LONG).show();
+                Toast.makeText(requireContext(), "请授予全部文件访问权限", Toast.LENGTH_LONG).show();
             }
         }
     }
 
+    // 按平台分类加载文件，实现KR2样式
     private void loadMusicFileList() {
-        musicFileList.clear();
-        List<FileScannerUtils.MusicDir> dirs = FileScannerUtils.MUSIC_DIR_LIST;
+        musicGroupMap.clear();
+        musicGroupList.clear();
 
-        for (FileScannerUtils.MusicDir dir : dirs) {
-            List<String> fileNames = FileScannerUtils.scanMusicFiles(dir.getPath());
-            for (String fileName : fileNames) {
-                String fullPath = dir.getPath() + fileName;
-                // 去重
-                boolean isExist = false;
-                for (MusicFileItem item : musicFileList) {
-                    if (item.getFilePath().equals(fullPath)) {
-                        isExist = true;
-                        break;
-                    }
-                }
-                if (!isExist) {
-                    musicFileList.add(new MusicFileItem(dir.getName(), fileName, fullPath));
-                }
+        List<FileScannerUtils.MusicFileInfo> allFiles = FileScannerUtils.scanAllMusicFiles();
+        // 按平台分组
+        for (FileScannerUtils.MusicFileInfo fileInfo : allFiles) {
+            String platform = fileInfo.platform;
+            if (!musicGroupMap.containsKey(platform)) {
+                musicGroupMap.put(platform, new ArrayList<>());
             }
+            musicGroupMap.get(platform).add(new MusicFileItem(platform, fileInfo.fileName, fileInfo.fullPath));
+        }
+
+        // 生成分类列表
+        for (Map.Entry<String, List<MusicFileItem>> entry : musicGroupMap.entrySet()) {
+            musicGroupList.add(new MusicGroupItem(entry.getKey(), entry.getValue()));
         }
 
         adapter.notifyDataSetChanged();
-        if (musicFileList.isEmpty()) {
-            Toast.makeText(requireContext(), "未找到本地加密音乐文件", Toast.LENGTH_SHORT).show();
+        if (musicGroupList.isEmpty()) {
+            Toast.makeText(requireContext(), "未找到加密音乐文件", Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -156,21 +174,12 @@ public class SearchFragment extends Fragment implements DecryptBridge.DecryptCal
         startDecryptQueue();
     }
 
-    private void startBatchDecrypt(List<MusicFileItem> items) {
-        pendingDecryptList.clear();
-        pendingDecryptList.addAll(items);
-        currentDecryptIndex = 0;
-        totalDecryptCount = items.size();
-        startDecryptQueue();
-    }
-
     private void startDecryptQueue() {
         if (pendingDecryptList.isEmpty()) {
             if (isAdded() && getContext() != null) {
                 requireActivity().runOnUiThread(() -> {
                     llProgressArea.setVisibility(View.GONE);
-                    Toast.makeText(requireContext(), "全部解密完成！文件已保存到 " + SpUtils.getSavePath(requireContext()), Toast.LENGTH_LONG).show();
-                    adapter.setAllSelected(false);
+                    Toast.makeText(requireContext(), "解密完成！文件已保存到 " + SpUtils.getSavePath(requireContext()), Toast.LENGTH_LONG).show();
                 });
             }
             return;
@@ -187,9 +196,8 @@ public class SearchFragment extends Fragment implements DecryptBridge.DecryptCal
             });
         }
 
-        MainActivity activity = getActivity() instanceof MainActivity ? (MainActivity) getActivity() : null;
-        if (activity != null) {
-            activity.startDecrypt(currentItem.getFilePath(), currentItem.getFileName(), this);
+        if (mainActivity != null) {
+            mainActivity.startDecrypt(currentItem.getFilePath(), currentItem.getFileName(), this);
         } else {
             startDecryptQueue();
         }
@@ -225,12 +233,12 @@ public class SearchFragment extends Fragment implements DecryptBridge.DecryptCal
             requireContext().sendBroadcast(new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, android.net.Uri.fromFile(outFile)));
 
             requireActivity().runOnUiThread(() -> {
-                Toast.makeText(requireContext(), "解密成功！文件已保存到：\n" + outFile.getAbsolutePath(), Toast.LENGTH_LONG).show();
+                Toast.makeText(requireContext(), "解密成功！已保存到：\n" + outFile.getAbsolutePath(), Toast.LENGTH_LONG).show();
             });
 
         } catch (Exception e) {
             requireActivity().runOnUiThread(() -> {
-                Toast.makeText(requireContext(), "文件保存失败：" + e.getMessage(), Toast.LENGTH_SHORT).show();
+                Toast.makeText(requireContext(), "保存失败：" + e.getMessage(), Toast.LENGTH_SHORT).show();
             });
         }
         startDecryptQueue();
@@ -253,97 +261,129 @@ public class SearchFragment extends Fragment implements DecryptBridge.DecryptCal
         loadMusicFileList();
     }
 
+    // 分类列表实体
+    public static class MusicGroupItem {
+        private final String platform;
+        private final List<MusicFileItem> fileList;
+
+        public MusicGroupItem(String platform, List<MusicFileItem> fileList) {
+            this.platform = platform;
+            this.fileList = fileList;
+        }
+
+        public String getPlatform() { return platform; }
+        public List<MusicFileItem> getFileList() { return fileList; }
+    }
+
+    // 音乐文件实体
     public static class MusicFileItem {
         private final String platform;
         private final String fileName;
         private final String filePath;
-        private boolean isSelected;
 
         public MusicFileItem(String platform, String fileName, String filePath) {
             this.platform = platform;
             this.fileName = fileName;
             this.filePath = filePath;
-            this.isSelected = false;
         }
 
         public String getPlatform() { return platform; }
         public String getFileName() { return fileName; }
         public String getFilePath() { return filePath; }
-        public boolean isSelected() { return isSelected; }
-        public void setSelected(boolean selected) { isSelected = selected; }
     }
 
-    public static class MusicAdapter extends RecyclerView.Adapter<MusicAdapter.VH> {
-        private final List<MusicFileItem> itemList;
-        private final OnItemActionListener listener;
+    // 分类列表适配器（KR2样式）
+    public static class MusicGroupAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
-        public MusicAdapter(List<MusicFileItem> itemList, OnItemActionListener listener) {
-            this.itemList = itemList;
+        private static final int TYPE_GROUP_HEADER = 0;
+        private static final int TYPE_FILE_ITEM = 1;
+        private final List<MusicGroupItem> groupList;
+        private final List<Object> displayList = new ArrayList<>();
+        private final OnItemDecryptListener listener;
+
+        public interface OnItemDecryptListener {
+            void onDecryptClick(MusicFileItem item);
+        }
+
+        public MusicGroupAdapter(List<MusicGroupItem> groupList, OnItemDecryptListener listener) {
+            this.groupList = groupList;
             this.listener = listener;
+            refreshDisplayList();
+        }
+
+        private void refreshDisplayList() {
+            displayList.clear();
+            for (MusicGroupItem group : groupList) {
+                displayList.add(group); // 分类标题
+                displayList.addAll(group.getFileList()); // 分类下的文件
+            }
+        }
+
+        @Override
+        public int getItemViewType(int position) {
+            Object item = displayList.get(position);
+            if (item instanceof MusicGroupItem) {
+                return TYPE_GROUP_HEADER;
+            } else {
+                return TYPE_FILE_ITEM;
+            }
         }
 
         @NonNull
         @Override
-        public VH onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-            View v = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_music_file, parent, false);
-            return new VH(v);
-        }
-
-        @Override
-        public void onBindViewHolder(@NonNull VH holder, int position) {
-            MusicFileItem item = itemList.get(position);
-            holder.tvFileName.setText(item.getFileName());
-            holder.cbSelect.setChecked(item.isSelected());
-
-            holder.cbSelect.setOnCheckedChangeListener((buttonView, isChecked) -> {
-                if (buttonView.isPressed()) {
-                    item.setSelected(isChecked);
-                    notifySelectedChange();
-                }
-            });
-
-            holder.btnDecrypt.setOnClickListener(v -> {
-                if (listener != null) listener.onDecryptClick(item);
-            });
-        }
-
-        private void notifySelectedChange() {
-            if (listener != null) {
-                List<MusicFileItem> selected = new ArrayList<>();
-                for (MusicFileItem item : itemList) {
-                    if (item.isSelected()) selected.add(item);
-                }
-                listener.onSelectChange(selected);
+        public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+            LayoutInflater inflater = LayoutInflater.from(parent.getContext());
+            if (viewType == TYPE_GROUP_HEADER) {
+                View view = inflater.inflate(R.layout.item_group_header, parent, false);
+                return new GroupHeaderVH(view);
+            } else {
+                View view = inflater.inflate(R.layout.item_music_file, parent, false);
+                return new FileItemVH(view);
             }
         }
 
-        public void setAllSelected(boolean isSelected) {
-            for (MusicFileItem item : itemList) {
-                item.setSelected(isSelected);
+        @Override
+        public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
+            Object item = displayList.get(position);
+            if (holder instanceof GroupHeaderVH) {
+                MusicGroupItem group = (MusicGroupItem) item;
+                ((GroupHeaderVH) holder).tvGroupTitle.setText(group.getPlatform());
+            } else if (holder instanceof FileItemVH) {
+                MusicFileItem fileItem = (MusicFileItem) item;
+                FileItemVH vh = (FileItemVH) holder;
+                vh.tvFileName.setText(fileItem.getFileName());
+                vh.btnDecrypt.setText("解密并下载");
+                vh.btnDecrypt.setOnClickListener(v -> {
+                    if (listener != null) {
+                        listener.onDecryptClick(fileItem);
+                    }
+                });
             }
-            notifyDataSetChanged();
-            notifySelectedChange();
         }
 
         @Override
-        public int getItemCount() { return itemList.size(); }
+        public int getItemCount() {
+            return displayList.size();
+        }
 
-        static class VH extends RecyclerView.ViewHolder {
-            CheckBox cbSelect;
+        static class GroupHeaderVH extends RecyclerView.ViewHolder {
+            TextView tvGroupTitle;
+
+            GroupHeaderVH(View itemView) {
+                super(itemView);
+                tvGroupTitle = itemView.findViewById(R.id.tv_group_title);
+            }
+        }
+
+        static class FileItemVH extends RecyclerView.ViewHolder {
             TextView tvFileName;
             MaterialButton btnDecrypt;
 
-            VH(View itemView) {
+            FileItemVH(View itemView) {
                 super(itemView);
-                cbSelect = itemView.findViewById(R.id.cb_select);
                 tvFileName = itemView.findViewById(R.id.tv_file_name);
                 btnDecrypt = itemView.findViewById(R.id.btn_decrypt);
             }
         }
-    }
-
-    public interface OnItemActionListener {
-        void onDecryptClick(MusicFileItem item);
-        void onSelectChange(List<MusicFileItem> selectedList);
     }
 }

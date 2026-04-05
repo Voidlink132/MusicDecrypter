@@ -29,7 +29,6 @@
                     android:layout_weight="1"
                     android:textSize="14sp"/>
 
-                <!-- 新增：百分比文本 -->
                 <TextView
                     android:id="@+id/tv_progress_percent"
                     android:layout_width="wrap_content"
@@ -59,14 +58,14 @@
             android:padding="16dp"
             android:gravity="center"/>
 
-        <com.google.android.material.button.MaterialButton
+        <Button
             android:id="@+id/btn_select_file"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="选择加密音乐文件"
             android:layout_marginVertical="8dp"/>
 
-        <com.google.android.material.button.MaterialButton
+        <Button
             android:id="@+id/btn_download"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

@@ -37,6 +37,7 @@ public class SearchFragment extends Fragment implements MainActivity.OnEngineSta
 
     private LinearLayout llProgressArea;
     private TextView tvDecryptStep;
+    private TextView tvProgressPercent; // 新增：百分比文本
     private ProgressBar decryptProgressBar;
     private RecyclerView rvMusicFiles;
     private MusicGroupAdapter adapter;
@@ -66,9 +67,10 @@ public class SearchFragment extends Fragment implements MainActivity.OnEngineSta
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        // 绑定控件
+        // 绑定控件，新增百分比文本
         llProgressArea = view.findViewById(R.id.ll_progress_area);
         tvDecryptStep = view.findViewById(R.id.tv_decrypt_step);
+        tvProgressPercent = view.findViewById(R.id.tv_progress_percent);
         decryptProgressBar = view.findViewById(R.id.decrypt_progress_bar);
         rvMusicFiles = view.findViewById(R.id.rv_music_files);
 
@@ -86,6 +88,7 @@ public class SearchFragment extends Fragment implements MainActivity.OnEngineSta
     @Override
     public void onStart() {
         super.onStart();
+        // 绑定引擎状态监听，解决页面切换后状态不同步
         if (getActivity() instanceof MainActivity) {
             mainActivity = (MainActivity) getActivity();
             mainActivity.addEngineStateListener(this);
@@ -95,6 +98,7 @@ public class SearchFragment extends Fragment implements MainActivity.OnEngineSta
     @Override
     public void onStop() {
         super.onStop();
+        // 移除监听，避免内存泄漏
         if (mainActivity != null) {
             mainActivity.removeEngineStateListener(this);
         }
@@ -109,18 +113,21 @@ public class SearchFragment extends Fragment implements MainActivity.OnEngineSta
                 case MainActivity.ENGINE_STATE_LOADING:
                     llProgressArea.setVisibility(View.VISIBLE);
                     tvDecryptStep.setText(message);
+                    tvProgressPercent.setVisibility(View.GONE);
                     decryptProgressBar.setIndeterminate(true);
                     break;
                 case MainActivity.ENGINE_STATE_READY:
                     llProgressArea.setVisibility(View.GONE);
                     decryptProgressBar.setIndeterminate(false);
                     decryptProgressBar.setProgress(0);
+                    tvProgressPercent.setText("0%");
                     Toast.makeText(requireContext(), "解密引擎就绪", Toast.LENGTH_SHORT).show();
                     break;
                 case MainActivity.ENGINE_STATE_ERROR:
                 case MainActivity.ENGINE_STATE_TIMEOUT:
                     llProgressArea.setVisibility(View.VISIBLE);
                     tvDecryptStep.setText(message);
+                    tvProgressPercent.setVisibility(View.GONE);
                     decryptProgressBar.setIndeterminate(false);
                     decryptProgressBar.setProgress(0);
                     Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show();
@@ -135,17 +142,20 @@ public class SearchFragment extends Fragment implements MainActivity.OnEngineSta
                 Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
                 intent.setData(android.net.Uri.parse("package:" + requireContext().getPackageName()));
                 startActivity(intent);
-                Toast.makeText(requireContext(), "请授予全部文件访问权限", Toast.LENGTH_LONG).show();
+                Toast.makeText(requireContext(), "请授予全部文件访问权限，否则无法读取音乐文件", Toast.LENGTH_LONG).show();
             }
         }
     }
 
-    // 按平台分类加载文件，实现KR2样式
+    // 【关键修复】按平台分类加载文件，解决列表为空的问题
     private void loadMusicFileList() {
         musicGroupMap.clear();
         musicGroupList.clear();
 
+        // 扫描所有音乐文件
         List<FileScannerUtils.MusicFileInfo> allFiles = FileScannerUtils.scanAllMusicFiles();
+        android.util.Log.d("MusicScan", "扫描到文件数量：" + allFiles.size());
+
         // 按平台分组
         for (FileScannerUtils.MusicFileInfo fileInfo : allFiles) {
             String platform = fileInfo.platform;
@@ -160,9 +170,11 @@ public class SearchFragment extends Fragment implements MainActivity.OnEngineSta
             musicGroupList.add(new MusicGroupItem(entry.getKey(), entry.getValue()));
         }
 
-        adapter.notifyDataSetChanged();
+        // 【关键修复】刷新适配器的展示列表，解决列表为空
+        adapter.refreshData(musicGroupList);
+
         if (musicGroupList.isEmpty()) {
-            Toast.makeText(requireContext(), "未找到加密音乐文件", Toast.LENGTH_SHORT).show();
+            Toast.makeText(requireContext(), "未找到本地加密音乐文件", Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -179,7 +191,7 @@ public class SearchFragment extends Fragment implements MainActivity.OnEngineSta
             if (isAdded() && getContext() != null) {
                 requireActivity().runOnUiThread(() -> {
                     llProgressArea.setVisibility(View.GONE);
-                    Toast.makeText(requireContext(), "解密完成！文件已保存到 " + SpUtils.getSavePath(requireContext()), Toast.LENGTH_LONG).show();
+                    Toast.makeText(requireContext(), "全部解密完成！文件已保存到 " + SpUtils.getSavePath(requireContext()), Toast.LENGTH_LONG).show();
                 });
             }
             return;
@@ -191,7 +203,9 @@ public class SearchFragment extends Fragment implements MainActivity.OnEngineSta
         if (isAdded() && getContext() != null) {
             requireActivity().runOnUiThread(() -> {
                 llProgressArea.setVisibility(View.VISIBLE);
+                tvProgressPercent.setVisibility(View.VISIBLE);
                 tvDecryptStep.setText(String.format("正在解密(%d/%d)：%s", currentDecryptIndex, totalDecryptCount, currentItem.getFileName()));
+                tvProgressPercent.setText("0%");
                 decryptProgressBar.setProgress(0);
             });
         }
@@ -203,11 +217,13 @@ public class SearchFragment extends Fragment implements MainActivity.OnEngineSta
         }
     }
 
+    // 【关键修复】同步更新百分比进度
     @Override
     public void onDecryptProgress(int current, int total, int step) {
         if (!isAdded() || getContext() == null) return;
         requireActivity().runOnUiThread(() -> {
             decryptProgressBar.setProgress(current);
+            tvProgressPercent.setText(current + "%");
             if (step >= 0 && step < stepTexts.length) {
                 tvDecryptStep.setText(stepTexts[step]);
             }
@@ -292,7 +308,7 @@ public class SearchFragment extends Fragment implements MainActivity.OnEngineSta
         public String getFilePath() { return filePath; }
     }
 
-    // 分类列表适配器（KR2样式）
+    // 【关键修复】分类列表适配器，增加数据刷新方法，解决列表为空
     public static class MusicGroupAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
         private static final int TYPE_GROUP_HEADER = 0;
@@ -311,11 +327,19 @@ public class SearchFragment extends Fragment implements MainActivity.OnEngineSta
             refreshDisplayList();
         }
 
+        // 【关键修复】外部调用的数据刷新方法
+        public void refreshData(List<MusicGroupItem> newGroupList) {
+            groupList.clear();
+            groupList.addAll(newGroupList);
+            refreshDisplayList();
+            notifyDataSetChanged();
+        }
+
         private void refreshDisplayList() {
             displayList.clear();
             for (MusicGroupItem group : groupList) {
-                displayList.add(group); // 分类标题
-                displayList.addAll(group.getFileList()); // 分类下的文件
+                displayList.add(group);
+                displayList.addAll(group.getFileList());
             }
         }
 

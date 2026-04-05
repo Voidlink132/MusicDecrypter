@@ -4,6 +4,34 @@
     android:layout_height="match_parent"
     android:orientation="vertical">
 
+    <!-- 解密进度区域（默认隐藏） -->
+    <LinearLayout
+        android:id="@+id/ll_progress_area"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp"
+        android:background="#f5f5f5"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/tv_decrypt_step"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="14sp"
+            android:layout_marginBottom="8dp"/>
+
+        <ProgressBar
+            android:id="@+id/decrypt_progress_bar"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="8dp"
+            android:max="100"
+            android:progress="0"/>
+
+    </LinearLayout>
+
+    <!-- 全选+批量解密栏 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

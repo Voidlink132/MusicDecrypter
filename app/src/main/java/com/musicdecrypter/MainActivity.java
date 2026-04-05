@@ -30,20 +30,21 @@ public class MainActivity extends AppCompatActivity {
     private BottomNavigationView bottomNav;
     private WebView decryptWebView;
     private DecryptBridge currentDecryptBridge;
-    // 国内稳定可访问的解密地址
-    private static final String DECRYPT_URL = "https://unlock-music.vercel.app/";
+    // 国内稳定可访问的离线优先解密地址
+    private static final String DECRYPT_URL = "https://git.unlock-music.dev/";
     // 引擎状态常量
-    public static final int ENGINE_STATE_LOADING = 0;
-    public static final int ENGINE_STATE_READY = 1;
-    public static final int ENGINE_STATE_ERROR = 2;
-    public static final int ENGINE_STATE_TIMEOUT = 3;
+    public static final int ENGINE_STATE_IDLE = 0;
+    public static final int ENGINE_STATE_LOADING = 1;
+    public static final int ENGINE_STATE_READY = 2;
+    public static final int ENGINE_STATE_ERROR = 3;
+    public static final int ENGINE_STATE_TIMEOUT = 4;
     // 当前引擎状态
-    private int engineState = ENGINE_STATE_LOADING;
+    private int engineState = ENGINE_STATE_IDLE;
     // 状态监听列表
     private final List<OnEngineStateChangeListener> stateListeners = new ArrayList<>();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
-    // 最长加载超时15秒，避免无限卡死
-    private static final long LOAD_TIMEOUT = 15 * 1000L;
+    // 最长加载超时10秒，快速兜底
+    private static final long LOAD_TIMEOUT = 10 * 1000L;
     private Runnable timeoutRunnable;
 
     // 引擎状态监听接口
@@ -57,7 +58,10 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         initBottomNav();
-        initDecryptWebView();
+        // 只初始化一次WebView，避免重复加载
+        if (decryptWebView == null) {
+            initDecryptWebView();
+        }
     }
 
     private void initBottomNav() {
@@ -67,6 +71,8 @@ public class MainActivity extends AppCompatActivity {
         FragmentPagerAdapter adapter = new FragmentPagerAdapter(this);
         viewPager.setAdapter(adapter);
         viewPager.setUserInputEnabled(false);
+        // 禁止页面预加载，避免两个Fragment同时初始化
+        viewPager.setOffscreenPageLimit(1);
 
         bottomNav.setOnItemSelectedListener(item -> {
             int itemId = item.getItemId();
@@ -97,12 +103,11 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void initDecryptWebView() {
-        // 开启WebView调试，方便排查问题
         WebView.setWebContentsDebuggingEnabled(true);
         decryptWebView = new WebView(getApplicationContext());
         WebSettings webSettings = decryptWebView.getSettings();
 
-        // WebView核心配置，确保页面和JS正常加载
+        // 核心WebView配置，确保一次加载成功
         webSettings.setJavaScriptEnabled(true);
         webSettings.setJavaScriptCanOpenWindowsAutomatically(true);
         webSettings.setDomStorageEnabled(true);
@@ -113,15 +118,14 @@ public class MainActivity extends AppCompatActivity {
         webSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
         webSettings.setLoadWithOverviewMode(true);
         webSettings.setUseWideViewPort(true);
+        webSettings.setCacheMode(WebSettings.LOAD_DEFAULT);
         webSettings.setUserAgentString("Mozilla/5.0 (Linux; Android 14) Chrome/120.0.0.0 Mobile Safari/537.36");
 
-        // 页面加载进度+JS控制台日志监听
+        // 页面加载进度监听
         decryptWebView.setWebChromeClient(new WebChromeClient() {
             @Override
             public void onProgressChanged(WebView view, int newProgress) {
                 super.onProgressChanged(view, newProgress);
-                // 打印加载进度到Logcat
-                android.util.Log.d("DecryptEngine", "页面加载进度：" + newProgress + "%");
                 if (engineState == ENGINE_STATE_LOADING) {
                     notifyStateChange(ENGINE_STATE_LOADING, "正在初始化解密引擎..." + newProgress + "%");
                 }
@@ -129,37 +133,35 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public boolean onConsoleMessage(android.webkit.ConsoleMessage consoleMessage) {
-                // 打印JS控制台日志，定位JS执行报错
                 android.util.Log.d("DecryptEngine_JS", consoleMessage.message() + " -- 行号：" + consoleMessage.lineNumber());
                 return super.onConsoleMessage(consoleMessage);
             }
         });
 
-        // 页面加载状态、错误、重定向全监听
+        // 页面加载状态全监听
         decryptWebView.setWebViewClient(new WebViewClient() {
             @Override
             public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
                 super.onPageStarted(view, url, favicon);
-                android.util.Log.d("DecryptEngine", "开始加载页面：" + url);
+                engineState = ENGINE_STATE_LOADING;
                 startLoadTimeout();
+                notifyStateChange(ENGINE_STATE_LOADING, "正在初始化解密引擎...");
             }
 
             @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
-                android.util.Log.d("DecryptEngine", "页面加载完成：" + url);
                 cancelTimeout();
-                // 延迟500ms等待JS环境完全初始化
+                // 延迟300ms等待JS环境初始化，避免重复加载
                 mainHandler.postDelayed(() -> {
                     engineState = ENGINE_STATE_READY;
                     notifyStateChange(ENGINE_STATE_READY, "解密引擎就绪");
-                }, 500);
+                }, 300);
             }
 
             @Override
             public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
                 super.onReceivedError(view, errorCode, description, failingUrl);
-                android.util.Log.e("DecryptEngine", "页面加载失败！错误码：" + errorCode + "，描述：" + description + "，地址：" + failingUrl);
                 cancelTimeout();
                 engineState = ENGINE_STATE_ERROR;
                 notifyStateChange(ENGINE_STATE_ERROR, "引擎加载失败：" + description);
@@ -168,33 +170,31 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onReceivedHttpError(WebView view, WebResourceRequest request, WebResourceResponse errorResponse) {
                 super.onReceivedHttpError(view, request, errorResponse);
-                android.util.Log.e("DecryptEngine", "HTTP请求失败！地址：" + request.getUrl() + "，状态码：" + errorResponse.getStatusCode());
+                android.util.Log.e("DecryptEngine", "HTTP错误：" + errorResponse.getStatusCode());
             }
 
             @Override
             public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
-                android.util.Log.w("DecryptEngine", "SSL证书错误，忽略并继续加载");
                 handler.proceed();
             }
 
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-                android.util.Log.d("DecryptEngine", "页面跳转：" + request.getUrl());
-                return super.shouldOverrideUrlLoading(view, request);
+                return false;
             }
         });
 
-        // 开始加载解密页面
+        // 只加载一次页面
         decryptWebView.loadUrl(DECRYPT_URL);
     }
 
-    // 启动加载超时计时器
+    // 启动超时计时器
     private void startLoadTimeout() {
         cancelTimeout();
         timeoutRunnable = () -> {
             if (engineState == ENGINE_STATE_LOADING) {
                 engineState = ENGINE_STATE_TIMEOUT;
-                notifyStateChange(ENGINE_STATE_TIMEOUT, "引擎加载超时，请检查网络后重启APP");
+                notifyStateChange(ENGINE_STATE_TIMEOUT, "引擎加载超时，请检查网络");
                 decryptWebView.stopLoading();
             }
         };
@@ -209,15 +209,16 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // 注册引擎状态监听
+    // 注册状态监听
     public void addEngineStateListener(OnEngineStateChangeListener listener) {
         if (!stateListeners.contains(listener)) {
             stateListeners.add(listener);
+            // 立即回调当前状态，避免重复初始化
             listener.onEngineStateChange(engineState, getStateMessage());
         }
     }
 
-    // 移除引擎状态监听
+    // 移除状态监听
     public void removeEngineStateListener(OnEngineStateChangeListener listener) {
         stateListeners.remove(listener);
     }
@@ -231,27 +232,27 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    // 获取当前状态文案
+    // 获取状态文案
     private String getStateMessage() {
         switch (engineState) {
             case ENGINE_STATE_READY: return "解密引擎就绪";
             case ENGINE_STATE_ERROR: return "引擎加载失败";
             case ENGINE_STATE_TIMEOUT: return "引擎加载超时";
-            default: return "正在初始化解密引擎...";
+            case ENGINE_STATE_LOADING: return "正在初始化解密引擎...";
+            default: return "就绪";
         }
     }
 
-    // 对外暴露的解密方法
+    // 对外解密方法
     public void startDecrypt(String filePath, String fileName, DecryptBridge.DecryptCallback callback) {
         if (engineState != ENGINE_STATE_READY) {
-            callback.onDecryptFailed("解密引擎未就绪，当前状态：" + getStateMessage());
+            callback.onDecryptFailed("引擎未就绪：" + getStateMessage());
             return;
         }
 
         cancelTimeout();
         startLoadTimeout();
 
-        // 重置桥接接口
         decryptWebView.removeJavascriptInterface("AndroidDecryptBridge");
         currentDecryptBridge = new DecryptBridge(callback);
         decryptWebView.addJavascriptInterface(currentDecryptBridge, "AndroidDecryptBridge");
@@ -261,7 +262,7 @@ public class MainActivity extends AppCompatActivity {
         injectDecryptJs(filePath, fileName, mimeType);
     }
 
-    // 解密JS注入逻辑
+    // 解密JS注入
     private void injectDecryptJs(String filePath, String fileName, String mimeType) {
         String js = "(async ()=>{"
                 + "try{"
@@ -300,7 +301,7 @@ public class MainActivity extends AppCompatActivity {
                 + "ipt.dispatchEvent(new Event('change', {bubbles: true}));"
                 + "AndroidDecryptBridge.onDecryptProgressUpdate(40);"
                 + "let retryCount = 0;"
-                + "const maxRetry = 50;"
+                + "const maxRetry = 30;"
                 + "const checkInterval = 500;"
                 + "const checkDecrypt = ()=>{"
                 + "retryCount++;"
@@ -319,8 +320,7 @@ public class MainActivity extends AppCompatActivity {
                 + "AndroidDecryptBridge.onDecryptProgressUpdate(progress);"
                 + "setTimeout(checkDecrypt, checkInterval);"
                 + "}else{"
-                + "AndroidDecryptBridge.onDecryptFailed('解密失败，不支持的文件格式');"
-                + "}"
+                + "AndroidDecryptBridge.onDecryptFailed('解密超时');}"
                 + "};"
                 + "setTimeout(checkDecrypt, 1000);"
                 + "}catch(e){"
@@ -332,7 +332,7 @@ public class MainActivity extends AppCompatActivity {
         decryptWebView.evaluateJavascript(js, null);
     }
 
-    // 获取文件MIME类型
+    // 获取MIME类型
     private String getMimeType(String fileName) {
         if (fileName.endsWith(".ncm")) return "audio/ncm";
         if (fileName.endsWith(".mgg") || fileName.endsWith(".mflac")) return "audio/mgg";

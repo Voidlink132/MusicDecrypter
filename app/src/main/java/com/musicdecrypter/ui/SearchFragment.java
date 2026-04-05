@@ -10,6 +10,7 @@ import android.provider.Settings;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -20,7 +21,6 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
-import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.musicdecrypter.MainActivity;
 import com.musicdecrypter.R;
@@ -38,13 +38,13 @@ import java.util.concurrent.Executors;
 
 public class SearchFragment extends Fragment implements MainActivity.OnEngineStateChangeListener, DecryptBridge.DecryptCallback {
 
-    private SwipeRefreshLayout swipeRefreshLayout;
     private LinearLayout llProgressArea;
     private TextView tvDecryptStep;
     private TextView tvProgressPercent;
     private ProgressBar decryptProgressBar;
     private RecyclerView rvMusicFiles;
     private TextView tvEmptyTip;
+    private Button btnRefreshScan;
     private MusicGroupAdapter adapter;
 
     private final Map<String, List<MusicFileItem>> musicGroupMap = new HashMap<>();
@@ -74,17 +74,16 @@ public class SearchFragment extends Fragment implements MainActivity.OnEngineSta
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         // 绑定控件
-        swipeRefreshLayout = view.findViewById(R.id.swipe_refresh);
         llProgressArea = view.findViewById(R.id.ll_progress_area);
         tvDecryptStep = view.findViewById(R.id.tv_decrypt_step);
         tvProgressPercent = view.findViewById(R.id.tv_progress_percent);
         decryptProgressBar = view.findViewById(R.id.decrypt_progress_bar);
         rvMusicFiles = view.findViewById(R.id.rv_music_files);
         tvEmptyTip = view.findViewById(R.id.tv_empty_tip);
+        btnRefreshScan = view.findViewById(R.id.btn_refresh_scan);
 
-        // 初始化下拉刷新
-        swipeRefreshLayout.setColorSchemeResources(R.color.purple_500);
-        swipeRefreshLayout.setOnRefreshListener(this::startScanMusicFiles);
+        // 刷新扫描按钮点击事件
+        btnRefreshScan.setOnClickListener(v -> checkStoragePermissionAndScan());
 
         // 初始化列表
         rvMusicFiles.setLayoutManager(new LinearLayoutManager(requireContext()));
@@ -159,6 +158,7 @@ public class SearchFragment extends Fragment implements MainActivity.OnEngineSta
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             if (!Environment.isExternalStorageManager()) {
                 tvEmptyTip.setText("请授予全部文件访问权限，否则无法读取音乐文件");
+                tvEmptyTip.setVisibility(View.VISIBLE);
                 Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
                 intent.setData(android.net.Uri.parse("package:" + requireContext().getPackageName()));
                 startActivity(intent);
@@ -172,7 +172,8 @@ public class SearchFragment extends Fragment implements MainActivity.OnEngineSta
     // 【核心修复】子线程执行文件扫描，避免主线程IO被系统拦截
     private void startScanMusicFiles() {
         if (!isAdded()) return;
-        swipeRefreshLayout.setRefreshing(true);
+        btnRefreshScan.setEnabled(false);
+        btnRefreshScan.setText("扫描中...");
         tvEmptyTip.setVisibility(View.GONE);
 
         // 线程池执行IO扫描，不阻塞主线程
@@ -200,7 +201,8 @@ public class SearchFragment extends Fragment implements MainActivity.OnEngineSta
             // 主线程更新UI
             mainHandler.post(() -> {
                 if (!isAdded()) return;
-                swipeRefreshLayout.setRefreshing(false);
+                btnRefreshScan.setEnabled(true);
+                btnRefreshScan.setText("重新扫描");
                 adapter.refreshData(musicGroupList);
 
                 // 空数据提示
@@ -433,7 +435,7 @@ public class SearchFragment extends Fragment implements MainActivity.OnEngineSta
 
         static class FileItemVH extends RecyclerView.ViewHolder {
             TextView tvFileName;
-            MaterialButton btnDecrypt;
+            Button btnDecrypt;
 
             FileItemVH(View itemView) {
                 super(itemView);

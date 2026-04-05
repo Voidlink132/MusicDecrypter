@@ -15,7 +15,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.LinearLayout;
-import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -27,13 +26,9 @@ import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.musicdecrypter.MainActivity;
 import com.musicdecrypter.R;
-import com.musicdecrypter.utils.MusicDecryptUtils;
-import com.musicdecrypter.utils.SpUtils;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -42,45 +37,30 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Executors;
 
-public class SearchFragment extends Fragment implements MainActivity.OnEngineStateChangeListener, MainActivity.DecryptCallback {
+/**
+ * 仅保留文件扫描和列表展示功能，解密功能跳转至内嵌网页完成
+ */
+public class SearchFragment extends Fragment {
 
     private static final String TAG = "SearchFragment";
     private static final int REQUEST_STORAGE_PERMISSION = 1001;
 
-    // 控件绑定
-    private LinearLayout llProgressArea;
-    private TextView tvDecryptStep;
-    private TextView tvProgressPercent;
-    private ProgressBar decryptProgressBar;
+    // 控件绑定（移除解密进度相关控件）
     private RecyclerView rvMusicFiles;
     private TextView tvEmptyTip;
     private Button btnRefreshScan;
     private MusicGroupAdapter adapter;
 
-    // 数据存储
+    // 数据存储（仅保留文件列表相关）
     private final Map<String, List<MusicFileItem>> musicGroupMap = new HashMap<>();
     private final List<MusicGroupItem> musicGroupList = new ArrayList<>();
-    private final List<MusicFileItem> pendingDecryptList = new ArrayList<>();
-    private int currentDecryptIndex = 0;
-    private int totalDecryptCount = 0;
-    private MainActivity mainActivity;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
-
-    // 解密步骤文案
-    private final String[] stepTexts = {
-            "就绪",
-            "正在读取文件...",
-            "正在初始化解密引擎...",
-            "正在解密文件...",
-            "正在保存文件...",
-            "解密完成"
-    };
 
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
-        Log.d(TAG, "onCreateView: 初始化查找页面");
-        return inflater.inflate(R.layout.fragment_search, container, false);
+        Log.d(TAG, "onCreateView: 初始化查找页面（仅扫描功能）");
+        return inflater.inflate(R.layout.fragment_search_scan_only, container, false);
     }
 
     @Override
@@ -88,50 +68,43 @@ public class SearchFragment extends Fragment implements MainActivity.OnEngineSta
         super.onViewCreated(view, savedInstanceState);
         bindViews(view);
         initRecyclerView();
+        // 刷新扫描按钮事件
         btnRefreshScan.setOnClickListener(v -> checkStoragePermissionAndScan());
+        // 首次启动扫描
         checkStoragePermissionAndScan();
     }
 
     private void bindViews(View view) {
-        llProgressArea = view.findViewById(R.id.ll_progress_area);
-        tvDecryptStep = view.findViewById(R.id.tv_decrypt_step);
-        tvProgressPercent = view.findViewById(R.id.tv_progress_percent);
-        decryptProgressBar = view.findViewById(R.id.decrypt_progress_bar);
         rvMusicFiles = view.findViewById(R.id.rv_music_files);
         tvEmptyTip = view.findViewById(R.id.tv_empty_tip);
         btnRefreshScan = view.findViewById(R.id.btn_refresh_scan);
+        // 移除解密进度相关控件绑定（llProgressArea、tvDecryptStep等）
     }
 
     private void initRecyclerView() {
         rvMusicFiles.setLayoutManager(new LinearLayoutManager(requireContext()));
-        adapter = new MusicGroupAdapter(musicGroupList, item -> startSingleDecrypt(item));
+        // 列表点击事件：提示跳转至解密页面
+        adapter = new MusicGroupAdapter(musicGroupList, item -> {
+            Toast.makeText(requireContext(), "请切换至「解密」页面，上传文件完成解密", Toast.LENGTH_SHORT).show();
+            // 可选：自动切换到解密页面（若需要）
+            if (getActivity() instanceof com.musicdecrypter.MainActivity) {
+                ((com.musicdecrypter.MainActivity) getActivity()).findViewById(R.id.nav_decrypt).performClick();
+            }
+        });
         rvMusicFiles.setAdapter(adapter);
         Log.d(TAG, "initRecyclerView: 列表初始化完成");
     }
 
     @Override
-    public void onStart() {
-        super.onStart();
-        if (getActivity() instanceof MainActivity) {
-            mainActivity = (MainActivity) getActivity();
-            mainActivity.addEngineStateListener(this);
-        }
-    }
-
-    @Override
-    public void onStop() {
-        super.onStop();
-        if (mainActivity != null) {
-            mainActivity.removeEngineStateListener(this);
-        }
-    }
-
-    @Override
     public void onResume() {
         super.onResume();
+        // 页面回到前台，重新扫描
         checkStoragePermissionAndScan();
     }
 
+    /**
+     * 权限校验（保留原逻辑）
+     */
     private void checkStoragePermissionAndScan() {
         Log.d(TAG, "checkStoragePermissionAndScan: 校验存储权限");
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -155,22 +128,24 @@ public class SearchFragment extends Fragment implements MainActivity.OnEngineSta
         startScanMusicFiles();
     }
 
-    // 仅优化查找（扫描）逻辑，列表展示不变
+    /**
+     * 保留原扫描逻辑（全路径覆盖+去重）
+     */
     private void startScanMusicFiles() {
         if (!isAdded()) return;
         btnRefreshScan.setEnabled(false);
         btnRefreshScan.setText("扫描中...");
         tvEmptyTip.setVisibility(View.GONE);
-        Log.d(TAG, "startScanMusicFiles: 启动优化后的文件扫描");
+        Log.d(TAG, "startScanMusicFiles: 启动文件扫描");
 
         Executors.newSingleThreadExecutor().execute(() -> {
             musicGroupMap.clear();
             musicGroupList.clear();
-            Set<String> scannedFilePaths = new HashSet<>(); // 文件路径去重
+            Set<String> scannedFilePaths = new HashSet<>();
 
-            // 全路径扫描（兼容主流音乐APP目录）
+            // 全路径扫描加密音乐文件
             List<File> allMusicFiles = scanAllEncryptedMusicFiles();
-            Log.d(TAG, "扫描完成，原始文件数：" + allMusicFiles.size());
+            Log.d(TAG, "扫描完成，找到加密文件数：" + allMusicFiles.size());
 
             // 按平台分组+去重
             for (File file : allMusicFiles) {
@@ -184,7 +159,6 @@ public class SearchFragment extends Fragment implements MainActivity.OnEngineSta
                     musicGroupMap.put(platform, new ArrayList<>());
                 }
                 musicGroupMap.get(platform).add(new MusicFileItem(platform, fileName, filePath));
-                Log.d(TAG, "找到有效文件：" + fileName + " | 路径：" + filePath);
             }
 
             // 生成分类列表
@@ -209,7 +183,9 @@ public class SearchFragment extends Fragment implements MainActivity.OnEngineSta
         });
     }
 
-    // 扫描所有加密音乐文件（全路径覆盖）
+    /**
+     * 扫描所有加密音乐文件（保留原逻辑）
+     */
     private List<File> scanAllEncryptedMusicFiles() {
         List<File> result = new ArrayList<>();
         String rootPath = Environment.getExternalStorageDirectory().getAbsolutePath();
@@ -243,7 +219,9 @@ public class SearchFragment extends Fragment implements MainActivity.OnEngineSta
         return result;
     }
 
-    // 递归扫描子目录
+    /**
+     * 递归扫描子目录（保留原逻辑）
+     */
     private void scanDirRecursive(File dir, String[] supportExts, List<File> result) {
         File[] files = dir.listFiles();
         if (files == null) return;
@@ -263,7 +241,9 @@ public class SearchFragment extends Fragment implements MainActivity.OnEngineSta
         }
     }
 
-    // 根据文件名判断平台
+    /**
+     * 根据文件名判断平台（保留原逻辑）
+     */
     private String getPlatformByFileName(String fileName) {
         String ext = fileName.substring(fileName.lastIndexOf(".")).toLowerCase();
         switch (ext) {
@@ -279,124 +259,7 @@ public class SearchFragment extends Fragment implements MainActivity.OnEngineSta
         }
     }
 
-    private void startSingleDecrypt(MusicFileItem item) {
-        if (mainActivity == null || mainActivity.getEngineState() != MainActivity.ENGINE_STATE_READY) {
-            Toast.makeText(requireContext(), "解密引擎未就绪，请稍候重试", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        pendingDecryptList.clear();
-        pendingDecryptList.add(item);
-        currentDecryptIndex = 0;
-        totalDecryptCount = 1;
-        startDecryptQueue();
-    }
-
-    private void startDecryptQueue() {
-        if (pendingDecryptList.isEmpty()) {
-            if (isAdded() && getContext() != null) {
-                requireActivity().runOnUiThread(() -> {
-                    llProgressArea.setVisibility(View.GONE);
-                    Toast.makeText(requireContext(), "全部解密完成！文件已保存到 " + SpUtils.getSavePath(requireContext()), Toast.LENGTH_LONG).show();
-                });
-            }
-            return;
-        }
-
-        MusicFileItem currentItem = pendingDecryptList.remove(0);
-        currentDecryptIndex++;
-
-        if (isAdded() && getContext() != null) {
-            requireActivity().runOnUiThread(() -> {
-                llProgressArea.setVisibility(View.VISIBLE);
-                tvProgressPercent.setVisibility(View.VISIBLE);
-                tvDecryptStep.setText(String.format("正在解密(%d/%d)：%s", currentDecryptIndex, totalDecryptCount, currentItem.getFileName()));
-                tvProgressPercent.setText("0%");
-                decryptProgressBar.setProgress(0);
-            });
-        }
-
-        if (mainActivity != null) {
-            mainActivity.startDecrypt(currentItem.getFilePath(), currentItem.getFileName(), this);
-        } else {
-            startDecryptQueue();
-        }
-    }
-
-    // ==================== 正确实现的回调方法（在类内部） ====================
-    @Override
-    public void onEngineStateChange(int state, String message) {
-        if (!isAdded() || getContext() == null) return;
-        requireActivity().runOnUiThread(() -> {
-            switch (state) {
-                case MainActivity.ENGINE_STATE_READY:
-                    llProgressArea.setVisibility(View.GONE);
-                    decryptProgressBar.setIndeterminate(false);
-                    decryptProgressBar.setProgress(0);
-                    tvProgressPercent.setText("0%");
-                    break;
-                default:
-                    llProgressArea.setVisibility(View.VISIBLE);
-                    tvDecryptStep.setText(message);
-                    tvProgressPercent.setVisibility(View.GONE);
-                    decryptProgressBar.setIndeterminate(false);
-            }
-        });
-    }
-
-    @Override
-    public void onDecryptProgress(int current, int total, int step) {
-        if (!isAdded() || getContext() == null) return;
-        requireActivity().runOnUiThread(() -> {
-            decryptProgressBar.setProgress(current);
-            tvProgressPercent.setText(current + "%");
-            if (step >= 0 && step < stepTexts.length) {
-                tvDecryptStep.setText(stepTexts[step]);
-            }
-        });
-    }
-
-    @Override
-    public void onDecryptSuccess(String fileName, byte[] fileData) {
-        if (!isAdded() || getContext() == null) {
-            startDecryptQueue();
-            return;
-        }
-
-        try {
-            String saveDirPath = SpUtils.getSavePath(requireContext());
-            File saveDir = new File(saveDirPath);
-            if (!saveDir.exists()) saveDir.mkdirs();
-            File outFile = new File(saveDir, fileName);
-            FileOutputStream fos = new FileOutputStream(outFile);
-            fos.write(fileData);
-            fos.flush();
-            fos.close();
-            requireContext().sendBroadcast(new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, android.net.Uri.fromFile(outFile)));
-
-            requireActivity().runOnUiThread(() -> {
-                Toast.makeText(requireContext(), "解密成功！已保存到：\n" + outFile.getAbsolutePath(), Toast.LENGTH_LONG).show();
-            });
-
-        } catch (Exception e) {
-            requireActivity().runOnUiThread(() -> {
-                Toast.makeText(requireContext(), "保存失败：" + e.getMessage(), Toast.LENGTH_SHORT).show();
-            });
-        }
-        startDecryptQueue();
-    }
-
-    @Override
-    public void onDecryptFailed(String errorMsg) {
-        if (isAdded() && getContext() != null) {
-            requireActivity().runOnUiThread(() -> {
-                llProgressArea.setVisibility(View.GONE);
-                Toast.makeText(requireContext(), "解密失败：" + errorMsg, Toast.LENGTH_SHORT).show();
-            });
-        }
-        startDecryptQueue();
-    }
-
-    // 列表实体、适配器（完全保留原有逻辑）
+    // ==================== 列表实体+适配器（保留原逻辑，修改按钮点击事件） ====================
     public static class MusicGroupItem {
         private final String platform;
         private final List<MusicFileItem> fileList;
@@ -431,13 +294,13 @@ public class SearchFragment extends Fragment implements MainActivity.OnEngineSta
         private static final int TYPE_FILE_ITEM = 1;
         private final List<MusicGroupItem> groupList;
         private final List<Object> displayList = new ArrayList<>();
-        private final OnItemDecryptListener listener;
+        private final OnItemClickListener listener;
 
-        public interface OnItemDecryptListener {
-            void onDecryptClick(MusicFileItem item);
+        public interface OnItemClickListener {
+            void onItemClick(MusicFileItem item);
         }
 
-        public MusicGroupAdapter(List<MusicGroupItem> groupList, OnItemDecryptListener listener) {
+        public MusicGroupAdapter(List<MusicGroupItem> groupList, OnItemClickListener listener) {
             this.groupList = groupList;
             this.listener = listener;
             refreshDisplayList();
@@ -472,7 +335,7 @@ public class SearchFragment extends Fragment implements MainActivity.OnEngineSta
                 View view = inflater.inflate(R.layout.item_group_header, parent, false);
                 return new GroupHeaderVH(view);
             } else {
-                View view = inflater.inflate(R.layout.item_music_file, parent, false);
+                View view = inflater.inflate(R.layout.item_music_file_scan_only, parent, false);
                 return new FileItemVH(view);
             }
         }
@@ -487,10 +350,10 @@ public class SearchFragment extends Fragment implements MainActivity.OnEngineSta
                 MusicFileItem fileItem = (MusicFileItem) item;
                 FileItemVH vh = (FileItemVH) holder;
                 vh.tvFileName.setText(fileItem.getFileName());
-                vh.btnDecrypt.setText("解密并下载");
-                vh.btnDecrypt.setOnClickListener(v -> {
+                // 按钮点击：触发回调（提示跳转解密页面）
+                vh.btnGotoDecrypt.setOnClickListener(v -> {
                     if (listener != null) {
-                        listener.onDecryptClick(fileItem);
+                        listener.onItemClick(fileItem);
                     }
                 });
             }
@@ -511,11 +374,11 @@ public class SearchFragment extends Fragment implements MainActivity.OnEngineSta
 
         static class FileItemVH extends RecyclerView.ViewHolder {
             TextView tvFileName;
-            Button btnDecrypt;
+            Button btnGotoDecrypt;
             FileItemVH(View itemView) {
                 super(itemView);
                 tvFileName = itemView.findViewById(R.id.tv_file_name);
-                btnDecrypt = itemView.findViewById(R.id.btn_decrypt);
+                btnGotoDecrypt = itemView.findViewById(R.id.btn_goto_decrypt);
             }
         }
     }

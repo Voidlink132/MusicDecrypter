@@ -4,6 +4,8 @@ import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.Settings;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -18,8 +20,8 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
-import com.google.android.material.button.MaterialButton;
 import com.musicdecrypter.MainActivity;
 import com.musicdecrypter.R;
 import com.musicdecrypter.utils.DecryptBridge;
@@ -32,14 +34,17 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executors;
 
 public class SearchFragment extends Fragment implements MainActivity.OnEngineStateChangeListener, DecryptBridge.DecryptCallback {
 
+    private SwipeRefreshLayout swipeRefreshLayout;
     private LinearLayout llProgressArea;
     private TextView tvDecryptStep;
-    private TextView tvProgressPercent; // 新增：百分比文本
+    private TextView tvProgressPercent;
     private ProgressBar decryptProgressBar;
     private RecyclerView rvMusicFiles;
+    private TextView tvEmptyTip;
     private MusicGroupAdapter adapter;
 
     private final Map<String, List<MusicFileItem>> musicGroupMap = new HashMap<>();
@@ -48,6 +53,7 @@ public class SearchFragment extends Fragment implements MainActivity.OnEngineSta
     private int currentDecryptIndex = 0;
     private int totalDecryptCount = 0;
     private MainActivity mainActivity;
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     private final String[] stepTexts = {
             "就绪",
@@ -67,28 +73,34 @@ public class SearchFragment extends Fragment implements MainActivity.OnEngineSta
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        // 绑定控件，新增百分比文本
+        // 绑定控件
+        swipeRefreshLayout = view.findViewById(R.id.swipe_refresh);
         llProgressArea = view.findViewById(R.id.ll_progress_area);
         tvDecryptStep = view.findViewById(R.id.tv_decrypt_step);
         tvProgressPercent = view.findViewById(R.id.tv_progress_percent);
         decryptProgressBar = view.findViewById(R.id.decrypt_progress_bar);
         rvMusicFiles = view.findViewById(R.id.rv_music_files);
+        tvEmptyTip = view.findViewById(R.id.tv_empty_tip);
 
-        // 初始化分类列表
+        // 初始化下拉刷新
+        swipeRefreshLayout.setColorSchemeResources(R.color.purple_500);
+        swipeRefreshLayout.setOnRefreshListener(this::startScanMusicFiles);
+
+        // 初始化列表
         rvMusicFiles.setLayoutManager(new LinearLayoutManager(requireContext()));
         adapter = new MusicGroupAdapter(musicGroupList, item -> {
             startSingleDecrypt(item);
         });
         rvMusicFiles.setAdapter(adapter);
 
-        checkStoragePermission();
-        loadMusicFileList();
+        // 首次启动校验权限+扫描
+        checkStoragePermissionAndScan();
     }
 
     @Override
     public void onStart() {
         super.onStart();
-        // 绑定引擎状态监听，解决页面切换后状态不同步
+        // 绑定引擎状态监听
         if (getActivity() instanceof MainActivity) {
             mainActivity = (MainActivity) getActivity();
             mainActivity.addEngineStateListener(this);
@@ -104,7 +116,14 @@ public class SearchFragment extends Fragment implements MainActivity.OnEngineSta
         }
     }
 
-    // 引擎状态回调，解决重复初始化
+    @Override
+    public void onResume() {
+        super.onResume();
+        // 页面回到前台时，重新扫描（解决授予权限后不刷新的问题）
+        checkStoragePermissionAndScan();
+    }
+
+    // 引擎状态回调
     @Override
     public void onEngineStateChange(int state, String message) {
         if (!isAdded() || getContext() == null) return;
@@ -121,7 +140,6 @@ public class SearchFragment extends Fragment implements MainActivity.OnEngineSta
                     decryptProgressBar.setIndeterminate(false);
                     decryptProgressBar.setProgress(0);
                     tvProgressPercent.setText("0%");
-                    Toast.makeText(requireContext(), "解密引擎就绪", Toast.LENGTH_SHORT).show();
                     break;
                 case MainActivity.ENGINE_STATE_ERROR:
                 case MainActivity.ENGINE_STATE_TIMEOUT:
@@ -136,49 +154,71 @@ public class SearchFragment extends Fragment implements MainActivity.OnEngineSta
         });
     }
 
-    private void checkStoragePermission() {
+    // 校验权限+启动扫描
+    private void checkStoragePermissionAndScan() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             if (!Environment.isExternalStorageManager()) {
+                tvEmptyTip.setText("请授予全部文件访问权限，否则无法读取音乐文件");
                 Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
                 intent.setData(android.net.Uri.parse("package:" + requireContext().getPackageName()));
                 startActivity(intent);
-                Toast.makeText(requireContext(), "请授予全部文件访问权限，否则无法读取音乐文件", Toast.LENGTH_LONG).show();
+                return;
             }
         }
+        // 权限已授予，启动扫描
+        startScanMusicFiles();
     }
 
-    // 【关键修复】按平台分类加载文件，解决列表为空的问题
-    private void loadMusicFileList() {
-        musicGroupMap.clear();
-        musicGroupList.clear();
+    // 【核心修复】子线程执行文件扫描，避免主线程IO被系统拦截
+    private void startScanMusicFiles() {
+        if (!isAdded()) return;
+        swipeRefreshLayout.setRefreshing(true);
+        tvEmptyTip.setVisibility(View.GONE);
 
-        // 扫描所有音乐文件
-        List<FileScannerUtils.MusicFileInfo> allFiles = FileScannerUtils.scanAllMusicFiles();
-        android.util.Log.d("MusicScan", "扫描到文件数量：" + allFiles.size());
+        // 线程池执行IO扫描，不阻塞主线程
+        Executors.newSingleThreadExecutor().execute(() -> {
+            musicGroupMap.clear();
+            musicGroupList.clear();
 
-        // 按平台分组
-        for (FileScannerUtils.MusicFileInfo fileInfo : allFiles) {
-            String platform = fileInfo.platform;
-            if (!musicGroupMap.containsKey(platform)) {
-                musicGroupMap.put(platform, new ArrayList<>());
+            // 执行全量扫描
+            List<FileScannerUtils.MusicFileInfo> allFiles = FileScannerUtils.scanAllMusicFiles();
+
+            // 按平台分组
+            for (FileScannerUtils.MusicFileInfo fileInfo : allFiles) {
+                String platform = fileInfo.platform;
+                if (!musicGroupMap.containsKey(platform)) {
+                    musicGroupMap.put(platform, new ArrayList<>());
+                }
+                musicGroupMap.get(platform).add(new MusicFileItem(platform, fileInfo.fileName, fileInfo.fullPath));
             }
-            musicGroupMap.get(platform).add(new MusicFileItem(platform, fileInfo.fileName, fileInfo.fullPath));
-        }
 
-        // 生成分类列表
-        for (Map.Entry<String, List<MusicFileItem>> entry : musicGroupMap.entrySet()) {
-            musicGroupList.add(new MusicGroupItem(entry.getKey(), entry.getValue()));
-        }
+            // 生成分类列表
+            for (Map.Entry<String, List<MusicFileItem>> entry : musicGroupMap.entrySet()) {
+                musicGroupList.add(new MusicGroupItem(entry.getKey(), entry.getValue()));
+            }
 
-        // 【关键修复】刷新适配器的展示列表，解决列表为空
-        adapter.refreshData(musicGroupList);
+            // 主线程更新UI
+            mainHandler.post(() -> {
+                if (!isAdded()) return;
+                swipeRefreshLayout.setRefreshing(false);
+                adapter.refreshData(musicGroupList);
 
-        if (musicGroupList.isEmpty()) {
-            Toast.makeText(requireContext(), "未找到本地加密音乐文件", Toast.LENGTH_SHORT).show();
-        }
+                // 空数据提示
+                if (musicGroupList.isEmpty()) {
+                    tvEmptyTip.setVisibility(View.VISIBLE);
+                    tvEmptyTip.setText("未找到本地加密音乐文件");
+                } else {
+                    tvEmptyTip.setVisibility(View.GONE);
+                }
+            });
+        });
     }
 
     private void startSingleDecrypt(MusicFileItem item) {
+        if (mainActivity == null || mainActivity.getEngineState() != MainActivity.ENGINE_STATE_READY) {
+            Toast.makeText(requireContext(), "解密引擎未就绪，请稍候重试", Toast.LENGTH_SHORT).show();
+            return;
+        }
         pendingDecryptList.clear();
         pendingDecryptList.add(item);
         currentDecryptIndex = 0;
@@ -217,7 +257,6 @@ public class SearchFragment extends Fragment implements MainActivity.OnEngineSta
         }
     }
 
-    // 【关键修复】同步更新百分比进度
     @Override
     public void onDecryptProgress(int current, int total, int step) {
         if (!isAdded() || getContext() == null) return;
@@ -271,12 +310,6 @@ public class SearchFragment extends Fragment implements MainActivity.OnEngineSta
         startDecryptQueue();
     }
 
-    @Override
-    public void onResume() {
-        super.onResume();
-        loadMusicFileList();
-    }
-
     // 分类列表实体
     public static class MusicGroupItem {
         private final String platform;
@@ -308,7 +341,7 @@ public class SearchFragment extends Fragment implements MainActivity.OnEngineSta
         public String getFilePath() { return filePath; }
     }
 
-    // 【关键修复】分类列表适配器，增加数据刷新方法，解决列表为空
+    // 分类列表适配器
     public static class MusicGroupAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
         private static final int TYPE_GROUP_HEADER = 0;
@@ -327,7 +360,6 @@ public class SearchFragment extends Fragment implements MainActivity.OnEngineSta
             refreshDisplayList();
         }
 
-        // 【关键修复】外部调用的数据刷新方法
         public void refreshData(List<MusicGroupItem> newGroupList) {
             groupList.clear();
             groupList.addAll(newGroupList);

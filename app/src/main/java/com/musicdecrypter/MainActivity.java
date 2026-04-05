@@ -31,7 +31,7 @@ public class MainActivity extends AppCompatActivity {
     private WebView decryptWebView;
     private DecryptBridge currentDecryptBridge;
     // 【关键修复】更换为官方稳定主站地址，解决invalid link报错
-    private static final String DECRYPT_URL = "https://unlock-music.netlify.app/";
+    private static final String DECRYPT_URL = "file:///android_asset/index.html";
     // 引擎状态常量
     public static final int ENGINE_STATE_IDLE = 0;
     public static final int ENGINE_STATE_LOADING = 1;

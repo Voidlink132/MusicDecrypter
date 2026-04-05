@@ -5,7 +5,10 @@
     android:orientation="horizontal"
     android:padding="12dp"
     android:gravity="center_vertical"
-    android:background="@drawable/item_bg">
+    <!-- 替换为系统默认点击反馈背景，无需自定义item_bg -->
+    android:background="?android:attr/selectableItemBackground"
+    android:clickable="true"
+    android:focusable="true">
 
     <TextView
         android:id="@+id/tv_file_name"

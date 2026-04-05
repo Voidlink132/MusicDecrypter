@@ -3,131 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Unlock Music 音乐解锁</title>
+    <title>Unlock Music</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-        }
-        body {
-            background: #f5f5f5;
-            min-height: 100vh;
-            padding: 20px;
-        }
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            background: #fff;
-            border-radius: 12px;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.1);
-            overflow: hidden;
-        }
-        .header {
-            background: #673ab7;
-            color: #fff;
-            padding: 24px;
-            text-align: center;
-        }
-        .header h1 {
-            font-size: 24px;
-            font-weight: 600;
-            margin-bottom: 8px;
-        }
-        .header p {
-            font-size: 14px;
-            opacity: 0.9;
-        }
-        .upload-area {
-            padding: 40px 20px;
-            text-align: center;
-            border: 2px dashed #ddd;
-            border-radius: 8px;
-            margin: 24px;
-            transition: all 0.3s;
-        }
-        .upload-area:hover {
-            border-color: #673ab7;
-        }
-        .upload-area input {
-            display: none;
-        }
-        .upload-area label {
-            display: inline-block;
-            background: #673ab7;
-            color: #fff;
-            padding: 12px 24px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 500;
-            margin-bottom: 12px;
-            transition: background 0.3s;
-        }
-        .upload-area label:hover {
-            background: #5a30a0;
-        }
-        .upload-tip {
-            color: #666;
-            font-size: 14px;
-        }
-        .result-list {
-            padding: 0 24px 24px;
-        }
-        .result-item {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 16px;
-            border-radius: 8px;
-            background: #f9f9f9;
-            margin-bottom: 12px;
-        }
-        .file-info {
-            flex: 1;
-        }
-        .file-name {
-            font-size: 16px;
-            font-weight: 500;
-            color: #333;
-            margin-bottom: 4px;
-        }
-        .file-status {
-            font-size: 13px;
-            color: #4caf50;
-        }
-        .download-btn {
-            background: #673ab7;
-            color: #fff;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 500;
-            transition: background 0.3s;
-        }
-        .download-btn:hover {
-            background: #5a30a0;
-        }
-        .error {
-            color: #f44336;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { padding: 20px; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; }
+        #fileInput { display: none; }
+        #resultList { margin-top: 20px; }
+        .result-item { padding: 10px; margin: 10px 0; background: #fff; border-radius: 8px; }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1>Unlock Music 音乐解锁</h1>
-            <p>支持网易云NCM/QQ音乐MGG/酷狗KGM等格式离线解密</p>
-        </div>
-
-        <div class="upload-area">
-            <input type="file" id="fileInput" multiple accept="audio/*,.ncm,.mgg,.mflac,.kgm,.kgma,.qmc0,.qmcflac">
-            <label for="fileInput">选择加密音乐文件</label>
-            <p class="upload-tip">支持多选，所有解密操作均在本地完成，不会上传任何文件</p>
-        </div>
-
-        <div class="result-list" id="resultList"></div>
+        <input type="file" id="fileInput" multiple accept="audio/*,.ncm,.mgg,.mflac,.kgm,.kgma,.qmc0,.qmcflac,.qmcogg,.kwm,.tm0,.tm2,.tm3,.tm6,.bkcmp3,.bkcm4a,.mg3d">
+        <div id="resultList"></div>
     </div>
 
     <script src="unlock-music.min.js"></script>
@@ -135,59 +24,36 @@
         const fileInput = document.getElementById('fileInput');
         const resultList = document.getElementById('resultList');
 
-        fileInput.addEventListener('change', async (e) => {
+        fileInput.addEventListener('change', async function(e) {
             const files = e.target.files;
             if (!files.length) return;
 
             resultList.innerHTML = '';
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
-                const item = createResultItem(file.name);
+                const item = document.createElement('div');
+                item.className = 'result-item';
+                item.textContent = '正在解密：' + file.name;
                 resultList.appendChild(item);
 
                 try {
                     const arrayBuffer = await file.arrayBuffer();
                     const data = new Uint8Array(arrayBuffer);
                     const decryptResult = await unlockMusic.decrypt(file.name, data);
-                    updateResultItem(item, decryptResult);
+                    
+                    item.textContent = '解密成功：' + decryptResult.fileName;
+                    const blob = new Blob([decryptResult.data], { type: 'audio/' + decryptResult.format });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = decryptResult.fileName;
+                    a.textContent = ' 下载';
+                    item.appendChild(a);
                 } catch (err) {
-                    updateResultItem(item, { error: err.message });
+                    item.textContent = '解密失败：' + file.name + ' - ' + err.message;
                 }
             }
         });
-
-        function createResultItem(fileName) {
-            const div = document.createElement('div');
-            div.className = 'result-item';
-            div.innerHTML = `
-                <div class="file-info">
-                    <div class="file-name">${fileName}</div>
-                    <div class="file-status">正在解密...</div>
-                </div>
-            `;
-            return div;
-        }
-
-        function updateResultItem(item, result) {
-            const statusEl = item.querySelector('.file-status');
-            const infoEl = item.querySelector('.file-info');
-
-            if (result.error) {
-                statusEl.className = 'file-status error';
-                statusEl.textContent = `解密失败：${result.error}`;
-                return;
-            }
-
-            statusEl.textContent = `解密成功 | 格式：${result.format}`;
-            const blob = new Blob([result.data], { type: `audio/${result.format}` });
-            const url = URL.createObjectURL(blob);
-
-            const downloadBtn = document.createElement('a');
-            downloadBtn.href = url;
-            downloadBtn.download = result.fileName;
-            downloadBtn.innerHTML = '<button class="download-btn">下载文件</button>';
-            item.appendChild(downloadBtn);
-        }
     </script>
 </body>
 </html>

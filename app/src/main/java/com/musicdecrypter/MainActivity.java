@@ -1,6 +1,8 @@
 package com.musicdecrypter;
 
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.ViewParent;
 import android.view.ViewGroup;
 import android.webkit.WebSettings;
@@ -22,15 +24,17 @@ public class MainActivity extends AppCompatActivity {
     private DecryptBridge currentDecryptBridge;
     private static final String DECRYPT_URL = "https://demo.unlock-music.dev/";
     private boolean isWebViewReady = false;
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    // 解密超时时间30秒，避免无限等待
+    private static final long DECRYPT_TIMEOUT = 30 * 1000L;
+    private Runnable timeoutRunnable;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // 初始化底部Tab导航
         initBottomNav();
-        // 初始化全局解密内核
         initDecryptWebView();
     }
 
@@ -40,9 +44,8 @@ public class MainActivity extends AppCompatActivity {
 
         FragmentPagerAdapter adapter = new FragmentPagerAdapter(this);
         viewPager.setAdapter(adapter);
-        viewPager.setUserInputEnabled(false); // 禁止左右滑动，避免误触
+        viewPager.setUserInputEnabled(false);
 
-        // Tab点击切换页面
         bottomNav.setOnItemSelectedListener(item -> {
             int itemId = item.getItemId();
             if (itemId == R.id.nav_search) {
@@ -58,7 +61,6 @@ public class MainActivity extends AppCompatActivity {
             return false;
         });
 
-        // 页面切换同步Tab选中状态
         viewPager.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
             @Override
             public void onPageSelected(int position) {
@@ -88,7 +90,10 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
-                isWebViewReady = true;
+                // 等待页面完全加载完成，标记引擎就绪
+                mainHandler.postDelayed(() -> {
+                    isWebViewReady = true;
+                }, 1000);
             }
         });
 
@@ -102,15 +107,30 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
+        // 重置超时逻辑
+        if (timeoutRunnable != null) {
+            mainHandler.removeCallbacks(timeoutRunnable);
+        }
+
+        // 重置桥接接口
         decryptWebView.removeJavascriptInterface("AndroidDecryptBridge");
         currentDecryptBridge = new DecryptBridge(callback);
         decryptWebView.addJavascriptInterface(currentDecryptBridge, "AndroidDecryptBridge");
 
+        // 回调：初始化引擎
+        callback.onDecryptProgress(10, 100, DecryptBridge.STEP_INIT_ENGINE);
+
         String mimeType = getMimeType(fileName);
         injectDecryptJs(filePath, fileName, mimeType);
+
+        // 超时处理：30秒未完成自动失败
+        timeoutRunnable = () -> {
+            callback.onDecryptFailed("解密超时，请重试");
+        };
+        mainHandler.postDelayed(timeoutRunnable, DECRYPT_TIMEOUT);
     }
 
-    // 分块解密JS注入
+    // 重写解密JS逻辑：实时监听解密状态，替换硬编码等待
     private void injectDecryptJs(String filePath, String fileName, String mimeType) {
         String js = "(async ()=>{"
                 + "try{"
@@ -121,9 +141,13 @@ public class MainActivity extends AppCompatActivity {
                 + "const fileSize = AndroidDecryptBridge.openFile(filePath);"
                 + "if(fileSize < 0) throw new Error('无法打开文件');"
                 + "const chunks = [];"
+                + "let readBytes = 0;"
                 + "while(true){"
                 + "const blockBase64 = AndroidDecryptBridge.readBlock(blockSize);"
                 + "if(!blockBase64) break;"
+                + "readBytes += blockSize;"
+                + "const progress = Math.floor((readBytes / fileSize) * 20);"
+                + "AndroidDecryptBridge.onDecryptProgressUpdate(10 + progress);"
                 + "const blockData = atob(blockBase64);"
                 + "const blockArr = new Uint8Array(blockData.length);"
                 + "for(let i=0;i<blockData.length;i++) blockArr[i] = blockData.charCodeAt(i);"
@@ -138,13 +162,21 @@ public class MainActivity extends AppCompatActivity {
                 + "}"
                 + "const blob = new Blob([fileData], {type: mimeType});"
                 + "const file = new File([blob], fileName);"
+                + "AndroidDecryptBridge.onDecryptProgressUpdate(30);"
                 + "const ipt = document.querySelector('input[type=file]') || document.createElement('input');"
                 + "ipt.type = 'file';ipt.multiple = true;"
                 + "const dt = new DataTransfer();dt.items.add(file);ipt.files = dt.files;"
                 + "ipt.dispatchEvent(new Event('change', {bubbles: true}));"
-                + "setTimeout(()=>{"
+                + "AndroidDecryptBridge.onDecryptProgressUpdate(40);"
+                + "// 轮询解密结果，最多25秒"
+                + "let retryCount = 0;"
+                + "const maxRetry = 50;"
+                + "const checkInterval = 500;"
+                + "const checkDecrypt = ()=>{"
+                + "retryCount++;"
                 + "const a = document.querySelector('a[download]');"
                 + "if(a && a.href.startsWith('blob:')){"
+                + "AndroidDecryptBridge.onDecryptProgressUpdate(80);"
                 + "fetch(a.href).then(r=>r.blob()).then(bl=>{"
                 + "const rd = new FileReader();rd.onloadend=()=>{"
                 + "const d = rd.result.split(',')[1];"
@@ -152,10 +184,15 @@ public class MainActivity extends AppCompatActivity {
                 + "};"
                 + "rd.readAsDataURL(bl);"
                 + "});"
+                + "}else if(retryCount < maxRetry){"
+                + "const progress = 40 + Math.floor((retryCount / maxRetry) * 40);"
+                + "AndroidDecryptBridge.onDecryptProgressUpdate(progress);"
+                + "setTimeout(checkDecrypt, checkInterval);"
                 + "}else{"
-                + "AndroidDecryptBridge.onDecryptFailed('不支持的文件格式或解密失败');"
+                + "AndroidDecryptBridge.onDecryptFailed('解密失败，不支持的文件格式');"
                 + "}"
-                + "}, 5000);"
+                + "};"
+                + "setTimeout(checkDecrypt, 1000);"
                 + "}catch(e){"
                 + "AndroidDecryptBridge.closeFile();"
                 + "AndroidDecryptBridge.onDecryptFailed(e.message);"
@@ -174,9 +211,11 @@ public class MainActivity extends AppCompatActivity {
         return "application/octet-stream";
     }
 
-    // 规范销毁WebView
     @Override
     protected void onDestroy() {
+        if (timeoutRunnable != null) {
+            mainHandler.removeCallbacks(timeoutRunnable);
+        }
         if (decryptWebView != null) {
             decryptWebView.stopLoading();
             decryptWebView.removeJavascriptInterface("AndroidDecryptBridge");

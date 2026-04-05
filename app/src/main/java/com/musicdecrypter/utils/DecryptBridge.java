@@ -5,10 +5,19 @@ import android.webkit.JavascriptInterface;
 import java.io.RandomAccessFile;
 
 public class DecryptBridge {
+    // 解密步骤常量（用于UI进度显示）
+    public static final int STEP_IDLE = 0;
+    public static final int STEP_READ_FILE = 1;
+    public static final int STEP_INIT_ENGINE = 2;
+    public static final int STEP_DECRYPTING = 3;
+    public static final int STEP_SAVE_FILE = 4;
+    public static final int STEP_FINISH = 5;
+
     public interface DecryptCallback {
         void onDecryptSuccess(String fileName, byte[] fileData);
         void onDecryptFailed(String errorMsg);
-        void onDecryptProgress(int current, int total);
+        // 新增：步骤+进度回调（current:当前进度, total:总进度, step:当前步骤）
+        void onDecryptProgress(int current, int total, int step);
     }
 
     private final DecryptCallback callback;
@@ -21,6 +30,9 @@ public class DecryptBridge {
     @JavascriptInterface
     public long openFile(String filePath) {
         try {
+            if (callback != null) {
+                callback.onDecryptProgress(0, 100, STEP_READ_FILE);
+            }
             currentFile = new RandomAccessFile(filePath, "r");
             return currentFile.length();
         } catch (Exception e) {
@@ -56,11 +68,21 @@ public class DecryptBridge {
         }
     }
 
+    // 新增：JS回调解密进度
+    @JavascriptInterface
+    public void onDecryptProgressUpdate(int progress) {
+        if (callback != null) {
+            callback.onDecryptProgress(progress, 100, STEP_DECRYPTING);
+        }
+    }
+
     @JavascriptInterface
     public void onDecryptSuccess(String fileName, String base64Data) {
         if (callback != null) {
+            callback.onDecryptProgress(95, 100, STEP_SAVE_FILE);
             byte[] data = android.util.Base64.decode(base64Data, android.util.Base64.NO_WRAP);
             callback.onDecryptSuccess(fileName, data);
+            callback.onDecryptProgress(100, 100, STEP_FINISH);
         }
     }
 
@@ -68,13 +90,6 @@ public class DecryptBridge {
     public void onDecryptFailed(String errorMsg) {
         if (callback != null) {
             callback.onDecryptFailed(errorMsg);
-        }
-    }
-
-    @JavascriptInterface
-    public void onDecryptProgress(int current, int total) {
-        if (callback != null) {
-            callback.onDecryptProgress(current, total);
         }
     }
 }

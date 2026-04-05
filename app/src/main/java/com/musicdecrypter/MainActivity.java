@@ -30,8 +30,8 @@ public class MainActivity extends AppCompatActivity {
     private BottomNavigationView bottomNav;
     private WebView decryptWebView;
     private DecryptBridge currentDecryptBridge;
-    // 国内100%可访问的稳定解密地址，解决页面加载失败
-    private static final String DECRYPT_URL = "https://unlock-music.js.org/";
+    // 【关键修复】更换为官方稳定主站地址，解决invalid link报错
+    private static final String DECRYPT_URL = "https://unlock-music.netlify.app/";
     // 引擎状态常量
     public static final int ENGINE_STATE_IDLE = 0;
     public static final int ENGINE_STATE_LOADING = 1;
@@ -43,7 +43,7 @@ public class MainActivity extends AppCompatActivity {
     // 状态监听列表
     private final List<OnEngineStateChangeListener> stateListeners = new ArrayList<>();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
-    // 最长加载超时8秒，快速兜底，避免长时间卡死
+    // 最长加载超时8秒，快速兜底
     private static final long LOAD_TIMEOUT = 8 * 1000L;
     private Runnable timeoutRunnable;
 
@@ -100,12 +100,11 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void initDecryptWebView() {
-        // 开启调试，方便排查问题
         WebView.setWebContentsDebuggingEnabled(true);
         decryptWebView = new WebView(getApplicationContext());
         WebSettings webSettings = decryptWebView.getSettings();
 
-        // 核心WebView配置，确保桥接对象正常注入
+        // 核心WebView配置，解决页面加载限制
         webSettings.setJavaScriptEnabled(true);
         webSettings.setJavaScriptCanOpenWindowsAutomatically(true);
         webSettings.setDomStorageEnabled(true);
@@ -116,8 +115,8 @@ public class MainActivity extends AppCompatActivity {
         webSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
         webSettings.setLoadWithOverviewMode(true);
         webSettings.setUseWideViewPort(true);
-        webSettings.setCacheMode(WebSettings.LOAD_NO_CACHE); // 禁用缓存，避免页面加载异常
-        webSettings.setUserAgentString("Mozilla/5.0 (Linux; Android 14) Chrome/120.0.0.0 Mobile Safari/537.36");
+        webSettings.setCacheMode(WebSettings.LOAD_DEFAULT);
+        webSettings.setUserAgentString("Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/124.0.0.0 Safari/537.36");
 
         // 页面加载进度+JS日志监听
         decryptWebView.setWebChromeClient(new WebChromeClient() {
@@ -144,7 +143,6 @@ public class MainActivity extends AppCompatActivity {
                 engineState = ENGINE_STATE_LOADING;
                 startLoadTimeout();
                 notifyStateChange(ENGINE_STATE_LOADING, "正在初始化解密引擎...");
-                // 页面开始加载时，先移除旧的桥接对象，避免残留
                 decryptWebView.removeJavascriptInterface("AndroidDecryptBridge");
             }
 
@@ -152,12 +150,12 @@ public class MainActivity extends AppCompatActivity {
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
                 cancelTimeout();
-                // 页面完全加载完成后，延迟200ms，确保JS环境完全就绪
+                // 页面完全加载完成后，延迟300ms确保JS环境完全就绪
                 mainHandler.postDelayed(() -> {
                     engineState = ENGINE_STATE_READY;
                     notifyStateChange(ENGINE_STATE_READY, "解密引擎就绪");
-                    android.util.Log.d("DecryptEngine", "页面加载完成，引擎就绪");
-                }, 200);
+                    android.util.Log.d("DecryptEngine", "页面加载完成，引擎就绪，地址：" + url);
+                }, 300);
             }
 
             @Override
@@ -218,7 +216,6 @@ public class MainActivity extends AppCompatActivity {
     public void addEngineStateListener(OnEngineStateChangeListener listener) {
         if (!stateListeners.contains(listener)) {
             stateListeners.add(listener);
-            // 立即回调当前状态，解决页面切换后状态不同步
             listener.onEngineStateChange(engineState, getStateMessage());
         }
     }
@@ -248,7 +245,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // 对外解密方法，修复桥接对象注入时机
+    // 对外解密方法，【关键修复】适配新页面的解密逻辑
     public void startDecrypt(String filePath, String fileName, DecryptBridge.DecryptCallback callback) {
         if (engineState != ENGINE_STATE_READY) {
             callback.onDecryptFailed("解密引擎未就绪，当前状态：" + getStateMessage());
@@ -258,7 +255,7 @@ public class MainActivity extends AppCompatActivity {
         cancelTimeout();
         startLoadTimeout();
 
-        // 【关键修复】每次解密前，重新注入桥接对象，确保JS能找到
+        // 每次解密前，重新注入桥接对象，确保JS能正常调用
         decryptWebView.removeJavascriptInterface("AndroidDecryptBridge");
         currentDecryptBridge = new DecryptBridge(callback);
         decryptWebView.addJavascriptInterface(currentDecryptBridge, "AndroidDecryptBridge");
@@ -269,11 +266,11 @@ public class MainActivity extends AppCompatActivity {
         injectDecryptJs(filePath, fileName, mimeType);
     }
 
-    // 【关键修复】解密JS逻辑，增加桥接对象存在性判断，彻底解决undefined报错
+    // 【关键修复】适配新页面的解密JS逻辑，兼容unlock-music.dev的DOM结构
     private void injectDecryptJs(String filePath, String fileName, String mimeType) {
         String js = "(async ()=>{"
                 + "try{"
-                + "// 先判断桥接对象是否存在，不存在直接抛出错误"
+                + "// 先校验桥接对象是否存在"
                 + "if(typeof AndroidDecryptBridge === 'undefined') {"
                 + "throw new Error('AndroidDecryptBridge 桥接对象未找到');"
                 + "}"
@@ -281,8 +278,9 @@ public class MainActivity extends AppCompatActivity {
                 + "const fileName = '" + fileName.replace("'", "\\'") + "';"
                 + "const mimeType = '" + mimeType + "';"
                 + "const blockSize = 1024 * 1024;"
+                + "// 读取本地文件"
                 + "const fileSize = AndroidDecryptBridge.openFile(filePath);"
-                + "if(fileSize < 0) throw new Error('无法打开文件');"
+                + "if(fileSize < 0) throw new Error('无法打开音乐文件');"
                 + "const chunks = [];"
                 + "let readBytes = 0;"
                 + "while(true){"
@@ -297,6 +295,7 @@ public class MainActivity extends AppCompatActivity {
                 + "chunks.push(blockArr);"
                 + "}"
                 + "AndroidDecryptBridge.closeFile();"
+                + "// 拼接文件数据"
                 + "const fileData = new Uint8Array(fileSize);"
                 + "let offset = 0;"
                 + "for(const chunk of chunks){"
@@ -306,41 +305,56 @@ public class MainActivity extends AppCompatActivity {
                 + "const blob = new Blob([fileData], {type: mimeType});"
                 + "const file = new File([blob], fileName);"
                 + "AndroidDecryptBridge.onDecryptProgressUpdate(30);"
-                + "const ipt = document.querySelector('input[type=file]') || document.createElement('input');"
-                + "ipt.type = 'file';ipt.multiple = true;"
-                + "const dt = new DataTransfer();dt.items.add(file);ipt.files = dt.files;"
-                + "ipt.dispatchEvent(new Event('change', {bubbles: true}));"
+                + "// 【适配新页面】获取文件上传输入框，兼容unlock-music.dev的DOM结构"
+                + "const fileInput = document.querySelector('input[type=\"file\"]') || document.querySelector('input[name=\"audioFile\"]') || document.createElement('input');"
+                + "fileInput.type = 'file';fileInput.multiple = true;fileInput.accept = 'audio/*';"
+                + "// 注入文件到上传框"
+                + "const dataTransfer = new DataTransfer();"
+                + "dataTransfer.items.add(file);"
+                + "fileInput.files = dataTransfer.files;"
+                + "// 触发上传事件"
+                + "fileInput.dispatchEvent(new Event('change', {bubbles: true, cancelable: true}));"
                 + "AndroidDecryptBridge.onDecryptProgressUpdate(40);"
+                + "// 轮询解密结果，适配新页面的下载链接生成逻辑"
                 + "let retryCount = 0;"
-                + "const maxRetry = 30;"
-                + "const checkInterval = 500;"
-                + "const checkDecrypt = ()=>{"
+                + "const maxRetry = 40;"
+                + "const checkInterval = 400;"
+                + "const checkDecryptResult = ()=>{"
                 + "retryCount++;"
-                + "const a = document.querySelector('a[download]');"
-                + "if(a && a.href.startsWith('blob:')){"
+                + "// 匹配新页面的下载链接，支持多种选择器"
+                + "const downloadLink = document.querySelector('a[download]') || document.querySelector('a[href^=\"blob:\"]') || document.querySelector('.download-btn');"
+                + "if(downloadLink && downloadLink.href && downloadLink.href.startsWith('blob:')){"
                 + "AndroidDecryptBridge.onDecryptProgressUpdate(80);"
-                + "fetch(a.href).then(r=>r.blob()).then(bl=>{"
-                + "const rd = new FileReader();rd.onloadend=()=>{"
-                + "const d = rd.result.split(',')[1];"
-                + "AndroidDecryptBridge.onDecryptSuccess(a.download, d);"
+                + "// 读取解密后的文件数据"
+                + "fetch(downloadLink.href).then(res=>res.blob()).then(decryptBlob=>{"
+                + "const reader = new FileReader();"
+                + "reader.onloadend = ()=>{"
+                + "const base64Data = reader.result.split(',')[1];"
+                + "const saveName = downloadLink.download || fileName.replace(/\\.\\w+$/, '.flac');"
+                + "AndroidDecryptBridge.onDecryptSuccess(saveName, base64Data);"
                 + "};"
-                + "rd.readAsDataURL(bl);"
+                + "reader.readAsDataURL(decryptBlob);"
+                + "}).catch(err=>{"
+                + "AndroidDecryptBridge.onDecryptFailed('读取解密文件失败：' + err.message);"
                 + "});"
                 + "}else if(retryCount < maxRetry){"
+                + "// 更新进度"
                 + "const progress = 40 + Math.floor((retryCount / maxRetry) * 40);"
                 + "AndroidDecryptBridge.onDecryptProgressUpdate(progress);"
-                + "setTimeout(checkDecrypt, checkInterval);"
+                + "setTimeout(checkDecryptResult, checkInterval);"
                 + "}else{"
-                + "AndroidDecryptBridge.onDecryptFailed('解密超时，不支持的文件格式');"
+                + "AndroidDecryptBridge.onDecryptFailed('解密超时，不支持的文件格式或页面加载异常');"
                 + "}"
                 + "};"
-                + "setTimeout(checkDecrypt, 1000);"
+                + "// 延迟启动轮询，等待页面解密逻辑执行"
+                + "setTimeout(checkDecryptResult, 1200);"
                 + "}catch(e){"
+                + "// 异常兜底"
                 + "if(typeof AndroidDecryptBridge !== 'undefined') {"
                 + "AndroidDecryptBridge.closeFile();"
-                + "AndroidDecryptBridge.onDecryptFailed(e.message);"
+                + "AndroidDecryptBridge.onDecryptFailed('解密执行异常：' + e.message);"
                 + "}"
-                + "console.error('解密错误：', e);"
+                + "console.error('解密JS执行错误：', e);"
                 + "}"
                 + "})();";
 
@@ -373,7 +387,6 @@ public class MainActivity extends AppCompatActivity {
         super.onDestroy();
     }
 
-    // 对外暴露当前引擎状态
     public int getEngineState() {
         return engineState;
     }

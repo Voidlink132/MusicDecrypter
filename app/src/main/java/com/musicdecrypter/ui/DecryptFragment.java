@@ -32,16 +32,15 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class DecryptFragment extends Fragment implements DecryptBridge.DecryptCallback {
+public class DecryptFragment extends Fragment implements MainActivity.OnEngineStateChangeListener, DecryptBridge.DecryptCallback {
 
     private FragmentDecryptBinding binding;
     private final List<Uri> pendingFileUris = new ArrayList<>();
     private final AtomicInteger successCount = new AtomicInteger(0);
     private final AtomicInteger failedCount = new AtomicInteger(0);
     private int totalFileCount = 0;
-    private String currentFileName = "";
+    private MainActivity mainActivity;
 
-    // 步骤文本映射
     private final String[] stepTexts = {
             "就绪",
             "正在读取文件...",
@@ -91,7 +90,48 @@ public class DecryptFragment extends Fragment implements DecryptBridge.DecryptCa
 
         binding.btnDownload.setOnClickListener(v -> openSaveDir());
         binding.btnSelectFile.setOnClickListener(v -> openFileChooser());
-        binding.tvStatus.setText("解密引擎已就绪，可选择加密音乐文件");
+        binding.tvStatus.setText("解密引擎初始化中...");
+        binding.btnSelectFile.setEnabled(false);
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+        if (getActivity() instanceof MainActivity) {
+            mainActivity = (MainActivity) getActivity();
+            mainActivity.addEngineStateListener(this);
+        }
+    }
+
+    @Override
+    public void onStop() {
+        super.onStop();
+        if (mainActivity != null) {
+            mainActivity.removeEngineStateListener(this);
+        }
+    }
+
+    @Override
+    public void onEngineStateChange(int state, String message) {
+        if (!isAdded() || getContext() == null) return;
+        requireActivity().runOnUiThread(() -> {
+            switch (state) {
+                case MainActivity.ENGINE_STATE_LOADING:
+                    binding.tvStatus.setText(message);
+                    binding.btnSelectFile.setEnabled(false);
+                    break;
+                case MainActivity.ENGINE_STATE_READY:
+                    binding.tvStatus.setText("解密引擎已就绪，可选择加密音乐文件");
+                    binding.btnSelectFile.setEnabled(true);
+                    break;
+                case MainActivity.ENGINE_STATE_ERROR:
+                case MainActivity.ENGINE_STATE_TIMEOUT:
+                    binding.tvStatus.setText(message);
+                    binding.btnSelectFile.setEnabled(false);
+                    Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show();
+                    break;
+            }
+        });
     }
 
     private void openFileChooser() {
@@ -119,7 +159,7 @@ public class DecryptFragment extends Fragment implements DecryptBridge.DecryptCa
         int currentIndex = totalFileCount - pendingFileUris.size();
 
         try {
-            currentFileName = getFileNameFromUri(fileUri);
+            String fileName = getFileNameFromUri(fileUri);
             byte[] fileData = readFileDataFromUri(fileUri);
 
             if (isAdded() && getContext() != null) {
@@ -127,16 +167,15 @@ public class DecryptFragment extends Fragment implements DecryptBridge.DecryptCa
                     binding.btnSelectFile.setEnabled(false);
                     binding.btnDownload.setVisibility(View.GONE);
                     binding.llProgressArea.setVisibility(View.VISIBLE);
-                    binding.tvDecryptStep.setText(String.format("正在解密(%d/%d)：%s", currentIndex, totalFileCount, currentFileName));
+                    binding.tvDecryptStep.setText(String.format("正在解密(%d/%d)：%s", currentIndex, totalFileCount, fileName));
                     binding.decryptProgressBar.setProgress(0);
                     binding.tvStatus.setText("解密中...");
                 });
             }
 
-            MainActivity activity = getActivity() instanceof MainActivity ? (MainActivity) getActivity() : null;
-            if (activity != null) {
-                File tempFile = createTempFile(fileData, currentFileName);
-                activity.startDecrypt(tempFile.getAbsolutePath(), currentFileName, this);
+            if (mainActivity != null) {
+                File tempFile = createTempFile(fileData, fileName);
+                mainActivity.startDecrypt(tempFile.getAbsolutePath(), fileName, this);
             } else {
                 startDecryptQueue();
             }

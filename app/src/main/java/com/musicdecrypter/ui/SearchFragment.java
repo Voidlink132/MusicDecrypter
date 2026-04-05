@@ -1,6 +1,8 @@
 package com.musicdecrypter.ui;
 
+import android.Manifest;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
@@ -18,6 +20,8 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -118,7 +122,7 @@ public class SearchFragment extends Fragment implements MainActivity.OnEngineSta
     @Override
     public void onResume() {
         super.onResume();
-        // 页面回到前台时，重新扫描（解决授予权限后不刷新的问题）
+        // 页面回到前台时，重新扫描
         checkStoragePermissionAndScan();
     }
 
@@ -153,7 +157,7 @@ public class SearchFragment extends Fragment implements MainActivity.OnEngineSta
         });
     }
 
-    // 校验权限+启动扫描
+    // 权限校验+申请
     private void checkStoragePermissionAndScan() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             if (!Environment.isExternalStorageManager()) {
@@ -164,19 +168,26 @@ public class SearchFragment extends Fragment implements MainActivity.OnEngineSta
                 startActivity(intent);
                 return;
             }
+        } else {
+            if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.READ_EXTERNAL_STORAGE)
+                    != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(requireActivity(),
+                        new String[]{Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE},
+                        1001);
+                return;
+            }
         }
         // 权限已授予，启动扫描
         startScanMusicFiles();
     }
 
-    // 【核心修复】子线程执行文件扫描，避免主线程IO被系统拦截
+    // 子线程执行文件扫描
     private void startScanMusicFiles() {
         if (!isAdded()) return;
         btnRefreshScan.setEnabled(false);
         btnRefreshScan.setText("扫描中...");
         tvEmptyTip.setVisibility(View.GONE);
 
-        // 线程池执行IO扫描，不阻塞主线程
         Executors.newSingleThreadExecutor().execute(() -> {
             musicGroupMap.clear();
             musicGroupList.clear();

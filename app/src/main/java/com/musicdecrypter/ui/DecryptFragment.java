@@ -87,7 +87,6 @@ public class DecryptFragment extends Fragment implements MainActivity.OnEngineSt
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-
         binding.btnDownload.setOnClickListener(v -> openSaveDir());
         binding.btnSelectFile.setOnClickListener(v -> openFileChooser());
         binding.tvStatus.setText("解密引擎初始化中...");
@@ -97,6 +96,7 @@ public class DecryptFragment extends Fragment implements MainActivity.OnEngineSt
     @Override
     public void onStart() {
         super.onStart();
+        // 【关键修复】绑定引擎状态监听，解决卡初始化
         if (getActivity() instanceof MainActivity) {
             mainActivity = (MainActivity) getActivity();
             mainActivity.addEngineStateListener(this);
@@ -111,6 +111,7 @@ public class DecryptFragment extends Fragment implements MainActivity.OnEngineSt
         }
     }
 
+    // 【关键修复】引擎状态回调，解决卡初始化
     @Override
     public void onEngineStateChange(int state, String message) {
         if (!isAdded() || getContext() == null) return;
@@ -168,6 +169,7 @@ public class DecryptFragment extends Fragment implements MainActivity.OnEngineSt
                     binding.btnDownload.setVisibility(View.GONE);
                     binding.llProgressArea.setVisibility(View.VISIBLE);
                     binding.tvDecryptStep.setText(String.format("正在解密(%d/%d)：%s", currentIndex, totalFileCount, fileName));
+                    binding.tvProgressPercent.setText("0%");
                     binding.decryptProgressBar.setProgress(0);
                     binding.tvStatus.setText("解密中...");
                 });
@@ -226,6 +228,7 @@ public class DecryptFragment extends Fragment implements MainActivity.OnEngineSt
         if (!isAdded() || getContext() == null) return;
         requireActivity().runOnUiThread(() -> {
             binding.decryptProgressBar.setProgress(current);
+            binding.tvProgressPercent.setText(current + "%");
             if (step >= 0 && step < stepTexts.length) {
                 binding.tvDecryptStep.setText(stepTexts[step]);
             }

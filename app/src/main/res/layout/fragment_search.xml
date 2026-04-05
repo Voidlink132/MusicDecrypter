@@ -1,79 +1,80 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.swiperefreshlayout.widget.SwipeRefreshLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/swipe_refresh"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:orientation="vertical">
 
+    <!-- 解密进度区域 -->
     <LinearLayout
+        android:id="@+id/ll_progress_area"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:orientation="vertical">
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp"
+        android:background="#f5f5f5"
+        android:visibility="gone">
 
-        <!-- 解密进度区域 -->
         <LinearLayout
-            android:id="@+id/ll_progress_area"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="16dp"
-            android:background="#f5f5f5"
-            android:visibility="gone">
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="8dp">
 
-            <LinearLayout
-                android:layout_width="match_parent"
+            <TextView
+                android:id="@+id/tv_decrypt_step"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:layout_marginBottom="8dp">
+                android:layout_weight="1"
+                android:textSize="14sp"/>
 
-                <TextView
-                    android:id="@+id/tv_decrypt_step"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:textSize="14sp"/>
-
-                <TextView
-                    android:id="@+id/tv_progress_percent"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:textSize="14sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/purple_500"
-                    android:text="0%"/>
-
-            </LinearLayout>
-
-            <ProgressBar
-                android:id="@+id/decrypt_progress_bar"
-                style="?android:attr/progressBarStyleHorizontal"
-                android:layout_width="match_parent"
-                android:layout_height="8dp"
-                android:max="100"
-                android:progress="0"/>
+            <TextView
+                android:id="@+id/tv_progress_percent"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="@color/purple_500"
+                android:text="0%"/>
 
         </LinearLayout>
 
-        <!-- 空数据提示 -->
-        <TextView
-            android:id="@+id/tv_empty_tip"
+        <ProgressBar
+            android:id="@+id/decrypt_progress_bar"
+            style="?android:attr/progressBarStyleHorizontal"
             android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
-            android:gravity="center"
-            android:textSize="16sp"
-            android:textColor="#999999"
-            android:text="未找到本地加密音乐文件"
-            android:visibility="gone"/>
-
-        <!-- 音乐列表 -->
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/rv_music_files"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:padding="8dp"/>
+            android:layout_height="8dp"
+            android:max="100"
+            android:progress="0"/>
 
     </LinearLayout>
 
-</androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+    <!-- 重新扫描按钮 -->
+    <Button
+        android:id="@+id/btn_refresh_scan"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="重新扫描音乐文件"
+        android:layout_margin="16dp"
+        android:backgroundTint="@color/purple_500"/>
+
+    <!-- 空数据提示 -->
+    <TextView
+        android:id="@+id/tv_empty_tip"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:gravity="center"
+        android:textSize="16sp"
+        android:textColor="#999999"
+        android:text="未找到本地加密音乐文件"
+        android:visibility="gone"/>
+
+    <!-- 音乐列表 -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rv_music_files"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:padding="8dp"/>
+
+</LinearLayout>

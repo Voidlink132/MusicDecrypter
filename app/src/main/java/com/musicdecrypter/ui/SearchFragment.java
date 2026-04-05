@@ -21,6 +21,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.button.MaterialButton;
 import com.musicdecrypter.MainActivity;
 import com.musicdecrypter.R;
+import com.musicdecrypter.utils.SpUtils;
 import com.musicdecrypter.utils.DecryptBridge;
 import com.musicdecrypter.utils.FileScannerUtils;
 

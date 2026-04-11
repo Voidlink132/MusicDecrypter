@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>音乐解密工具</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+        body {
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+        .upload-card {
+            background: white;
+            border-radius: 16px;
+            padding: 40px 20px;
+            text-align: center;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        }
+        .upload-btn {
+            background-color: #6200EE;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 16px 40px;
+            font-size: 18px;
+            font-weight: 500;
+            cursor: pointer;
+            margin: 10px 0;
+            width: 100%;
+            max-width: 300px;
+        }
+        .upload-btn:active {
+            background-color: #3700B3;
+        }
+        .download-btn {
+            background-color: #03DAC5;
+            color: black;
+            border: none;
+            border-radius: 12px;
+            padding: 14px 30px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            margin: 5px;
+            width: 100%;
+            max-width: 280px;
+        }
+        .clear-btn {
+            background-color: #FF4D4F;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 14px 30px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            margin: 5px;
+            width: 100%;
+            max-width: 280px;
+        }
+        .tip-text {
+            color: #666;
+            font-size: 14px;
+            margin: 15px 0;
+        }
+        .name-setting {
+            margin: 20px 0;
+            text-align: left;
+            max-width: 400px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .name-setting label {
+            display: block;
+            margin: 10px 0;
+            font-size: 16px;
+            color: #333;
+        }
+        .player {
+            background: white;
+            border-radius: 12px;
+            padding: 15px;
+            margin: 20px 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        audio {
+            width: 100%;
+            margin-top: 10px;
+        }
+        .file-list {
+            margin-top: 30px;
+        }
+        .file-item {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 8px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        /* 隐藏原生input，用自定义按钮触发 */
+        #file-input {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+<div class="upload-card">
+    <h2>音乐文件解密</h2>
+    <p class="tip-text">仅在本地解密，无需上传服务器，不消耗流量</p>
+
+    <!-- 自定义选择文件按钮 -->
+    <button class="upload-btn" id="select-btn">选择音乐文件</button>
+    <input type="file" id="file-input" multiple accept="audio/*,.ncm,.mgg,.mflac,.kgm,.kgma,.qmc0,.qmc1,.qmcflac">
+
+    <div class="name-setting">
+        <p style="font-weight: 500; margin-bottom: 10px;">歌曲命名格式：</p>
+        <label><input type="radio" name="name-format" value="singer-song" checked> 歌手-歌曲名</label>
+        <label><input type="radio" name="name-format" value="song"> 歌曲名</label>
+        <label><input type="radio" name="name-format" value="song-singer"> 歌曲名-歌手</label>
+        <label><input type="radio" name="name-format" value="origin"> 同源文件名</label>
+    </div>
+
+    <div>
+        <button class="download-btn" id="download-all">下载全部</button>
+        <button class="clear-btn" id="clear-all">清除全部</button>
+    </div>
+</div>
+
+<div class="player">
+    <p>预览播放</p>
+    <audio controls id="audio-player">
+        您的浏览器不支持音频播放
+
+</div>
+
+<div class="file-list" id="file-list">
+    <p style="text-align: center; color: #999;">暂无数据</p>
+</div>
+
+<!-- 引入unlock-music官方解密库 -->
+<script src="https://unpkg.com/unlock-music@1.10.6/dist/index.umd.js"></script>
+<script>
+    const fileInput = document.getElementById('file-input');
+    const selectBtn = document.getElementById('select-btn');
+    const downloadAllBtn = document.getElementById('download-all');
+    const clearAllBtn = document.getElementById('clear-all');
+    const fileList = document.getElementById('file-list');
+    const audioPlayer = document.getElementById('audio-player');
+
+    // 解密后的文件列表
+    let decryptedFiles = [];
+
+    // 自定义按钮触发文件选择
+    selectBtn.addEventListener('click', () => {
+        fileInput.click();
+    });
+
+    // 处理选择的文件，执行解密
+    fileInput.addEventListener('change', async (e) => {
+        const files = e.target.files;
+        if (!files.length) return;
+
+        for (let file of files) {
+            try {
+                // 调用unlock-music解密
+                const decrypted = await unlockMusic.decrypt(file);
+                if (decrypted) {
+                    decryptedFiles.push(decrypted);
+                    renderFileList();
+                }
+            } catch (err) {
+                alert(`文件 ${file.name} 解密失败：${err.message}`);
+            }
+        }
+        // 清空input，允许重复选择同一文件
+        fileInput.value = '';
+    });
+
+    // 渲染文件列表
+    function renderFileList() {
+        if (decryptedFiles.length === 0) {
+            fileList.innerHTML = '<p style="text-align: center; color: #999;">暂无数据</p>';
+            return;
+        }
+
+        let html = '';
+        decryptedFiles.forEach((item, index) => {
+            html += `
+                <div class="file-item">
+                    <div>
+                        <p style="font-weight: 500;">${item.title} - ${item.artist}</p>
+                        <p style="font-size: 12px; color: #666;">${item.filename}</p>
+                    </div>
+                    <div>
+                        <button class="download-btn" style="width: auto; padding: 8px 16px; margin: 0 5px;" onclick="playAudio(${index})">播放</button>
+                        <button class="download-btn" style="width: auto; padding: 8px 16px; margin: 0 5px;" onclick="downloadFile(${index})">下载</button>
+                    </div>
+                </div>
+                `;
+        });
+        fileList.innerHTML = html;
+    }
+
+    // 播放音频
+    window.playAudio = function(index) {
+        const item = decryptedFiles[index];
+        const blob = new Blob([item.data], { type: item.mime });
+        const url = URL.createObjectURL(blob);
+        audioPlayer.src = url;
+        audioPlayer.play();
+    };
+
+    // 下载单个文件
+    window.downloadFile = function(index) {
+        const item = decryptedFiles[index];
+        const blob = new Blob([item.data], { type: item.mime });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        // 根据命名格式生成文件名
+        const format = document.querySelector('input[name="name-format"]:checked').value;
+        let filename = item.filename;
+        if (format === 'singer-song') filename = `${item.artist}-${item.title}.${item.ext}`;
+        if (format === 'song') filename = `${item.title}.${item.ext}`;
+        if (format === 'song-singer') filename = `${item.title}-${item.artist}.${item.ext}`;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
+
+    // 下载全部
+    downloadAllBtn.addEventListener('click', () => {
+        if (decryptedFiles.length === 0) {
+            alert('没有可下载的文件');
+            return;
+        }
+        decryptedFiles.forEach((_, index) => {
+            downloadFile(index);
+        });
+    });
+
+    // 清除全部
+    clearAllBtn.addEventListener('click', () => {
+        decryptedFiles = [];
+        renderFileList();
+        audioPlayer.src = '';
+    });
+</script>
+</body>
+</html>

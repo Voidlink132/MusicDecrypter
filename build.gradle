@@ -1,3 +1,8 @@
+// 顶级构建文件，项目全局配置，适配JDK 26
 plugins {
-    id 'com.android.application' version '8.2.2' apply false
+    id 'com.android.application' version '8.7.2' apply false
+}
+
+tasks.register('clean', Delete) {
+    delete rootProject.buildDir
 }

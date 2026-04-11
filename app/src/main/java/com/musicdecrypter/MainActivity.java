@@ -1,9 +1,15 @@
 package com.musicdecrypter;
 
+import android.app.DownloadManager;
+import android.content.ActivityNotFoundException;
+import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
-import android.util.Log;
+import android.os.Environment;
 import android.webkit.DownloadListener;
 import android.webkit.SslErrorHandler;
+import android.webkit.URLUtil;
+import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
@@ -13,51 +19,81 @@ import android.net.http.SslError;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.viewpager2.adapter.FragmentStateAdapter;
 import androidx.viewpager2.widget.ViewPager2;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 
 public class MainActivity extends AppCompatActivity {
-    private static final String TAG = "MusicDecrypter_Main";
+
+    // 已替换为你指定的解密网址
+    public static final String ONLINE_DECRYPT_URL = "https://music-unlock.netlify.app";
+    private static final int FILE_CHOOSER_RESULT_CODE = 1001;
+
+    private ValueCallback<Uri[]> mUploadMessage;
+    private WebView decryptWebView;
+
     private ViewPager2 viewPager;
     private BottomNavigationView bottomNav;
-    // 内嵌官方在线解密网页
-    public static final String ONLINE_DECRYPT_URL = "https://unlock-music.netlify.app/";
-    private WebView decryptWebView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        // 初始化底部导航
         initBottomNav();
-        // 初始化WebView（全局唯一，避免重复创建）
+        // 初始化解密WebView
         initDecryptWebView();
     }
 
+    // 底部导航+ViewPager2初始化（和三周前逻辑完全一致）
     private void initBottomNav() {
         viewPager = findViewById(R.id.view_pager);
         bottomNav = findViewById(R.id.bottom_nav);
-        FragmentPagerAdapter adapter = new FragmentPagerAdapter(this);
-        viewPager.setAdapter(adapter);
+
+        viewPager.setAdapter(new FragmentStateAdapter(this) {
+            @NonNull
+            @Override
+            public androidx.fragment.app.Fragment createFragment(int position) {
+                switch (position) {
+                    case 0: return new com.musicdecrypter.ui.SearchFragment();
+                    case 1: return new com.musicdecrypter.ui.DecryptFragment();
+                    case 2: return new com.musicdecrypter.ui.SettingsFragment();
+                    default: return new com.musicdecrypter.ui.SearchFragment();
+                }
+            }
+
+            @Override
+            public int getItemCount() {
+                return 3;
+            }
+        });
+
+        // 禁止左右滑动切换，只允许点击底部导航
         viewPager.setUserInputEnabled(false);
+        // 预加载所有页面，避免切换时重新加载
         viewPager.setOffscreenPageLimit(2);
 
+        // 底部导航点击事件
         bottomNav.setOnItemSelectedListener(item -> {
-            int itemId = item.getItemId();
-            if (itemId == R.id.nav_search) {
+            int id = item.getItemId();
+            if (id == R.id.nav_search) {
                 viewPager.setCurrentItem(0, false);
                 return true;
-            } else if (itemId == R.id.nav_decrypt) {
+            } else if (id == R.id.nav_decrypt) {
                 viewPager.setCurrentItem(1, false);
                 return true;
-            } else if (itemId == R.id.nav_settings) {
+            } else if (id == R.id.nav_settings) {
                 viewPager.setCurrentItem(2, false);
                 return true;
             }
             return false;
         });
 
+        // 页面切换同步底部导航选中状态
         viewPager.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
             @Override
             public void onPageSelected(int position) {
@@ -71,99 +107,122 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    /**
-     * 初始化WebView：适配在线网页，支持文件上传、下载、JavaScript
-     */
+    // WebView初始化（完全恢复可用配置，支持文件选择、下载）
     private void initDecryptWebView() {
-        WebView.setWebContentsDebuggingEnabled(true);
         decryptWebView = new WebView(getApplicationContext());
         WebSettings webSettings = decryptWebView.getSettings();
 
-        // 核心配置（确保网页正常运行）
-        webSettings.setJavaScriptEnabled(true); // 必须启用JS
+        // 核心配置，和三周前可用版本完全一致
+        webSettings.setJavaScriptEnabled(true);
         webSettings.setJavaScriptCanOpenWindowsAutomatically(true);
-        webSettings.setDomStorageEnabled(true); // 支持本地存储
-        webSettings.setAllowFileAccess(true); // 允许访问本地文件（上传用）
+        webSettings.setDomStorageEnabled(true);
+        webSettings.setAllowFileAccess(true);
         webSettings.setAllowContentAccess(true);
-        webSettings.setAllowFileAccessFromFileURLs(true);
-        webSettings.setAllowUniversalAccessFromFileURLs(true);
-        webSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE); // 支持混合内容
         webSettings.setLoadWithOverviewMode(true);
         webSettings.setUseWideViewPort(true);
-        webSettings.setCacheMode(WebSettings.LOAD_NO_CACHE); // 禁用缓存，确保加载最新网页
+        webSettings.setCacheMode(WebSettings.LOAD_DEFAULT);
+        webSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
 
-        // 网页加载进度监听
+        // 文件选择支持（适配解密页的上传功能）
         decryptWebView.setWebChromeClient(new WebChromeClient() {
             @Override
-            public void onProgressChanged(WebView view, int newProgress) {
-                super.onProgressChanged(view, newProgress);
-                Log.d(TAG, "网页加载进度：" + newProgress + "%");
+            public boolean onShowFileChooser(WebView webView, ValueCallback<Uri[]> filePathCallback, FileChooserParams fileChooserParams) {
+                if (mUploadMessage != null) {
+                    mUploadMessage.onReceiveValue(null);
+                }
+                mUploadMessage = filePathCallback;
+
+                Intent intent = fileChooserParams.createIntent();
+                intent.setType("audio/*");
+                intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+
+                try {
+                    startActivityForResult(intent, FILE_CHOOSER_RESULT_CODE);
+                } catch (ActivityNotFoundException e) {
+                    mUploadMessage.onReceiveValue(null);
+                    mUploadMessage = null;
+                    Toast.makeText(MainActivity.this, "未找到文件管理器", Toast.LENGTH_SHORT).show();
+                    return false;
+                }
+                return true;
             }
         });
 
-        // 网页加载生命周期+SSL错误处理
+        // 网页加载处理（忽略SSL错误，正常加载页面）
         decryptWebView.setWebViewClient(new WebViewClient() {
             @Override
-            public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
-                super.onPageStarted(view, url, favicon);
-                Log.d(TAG, "开始加载网页：" + url);
-            }
-
-            @Override
-            public void onPageFinished(WebView view, String url) {
-                super.onPageFinished(view, url);
-                Log.d(TAG, "网页加载完成：" + url);
-            }
-
-            @Override
-            public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
-                super.onReceivedError(view, errorCode, description, failingUrl);
-                Log.e(TAG, "网页加载错误：" + description + "（错误码：" + errorCode + "）");
-                Toast.makeText(MainActivity.this, "网页加载失败，请检查网络", Toast.LENGTH_SHORT).show();
-            }
-
-            @Override
             public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
-                handler.proceed(); // 忽略SSL错误（避免网页因证书问题无法加载）
+                handler.proceed();
             }
 
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-                // 拦截网页跳转，在当前WebView内打开
                 view.loadUrl(request.getUrl().toString());
                 return true;
             }
         });
 
-        // 支持文件下载（解密后下载文件）
-        decryptWebView.setDownloadListener((url, userAgent, contentDisposition, mimetype, contentLength) -> {
-            Log.d(TAG, "开始下载文件：" + url);
-            // 调用系统下载管理器下载
-            android.content.Intent intent = new android.content.Intent(android.content.Intent.ACTION_VIEW);
-            intent.setData(android.net.Uri.parse(url));
-            startActivity(intent);
+        // 下载支持（解密后的文件自动下载到系统音乐目录）
+        decryptWebView.setDownloadListener(new DownloadListener() {
+            @Override
+            public void onDownloadStart(String url, String userAgent, String contentDisposition, String mimeType, long contentLength) {
+                DownloadManager.Request request = new DownloadManager.Request(Uri.parse(url));
+                request.setMimeType(mimeType);
+                request.addRequestHeader("User-Agent", userAgent);
+                request.setTitle(URLUtil.guessFileName(url, contentDisposition, mimeType));
+                request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+                request.setDestinationInExternalPublicDir(Environment.DIRECTORY_MUSIC, URLUtil.guessFileName(url, contentDisposition, mimeType));
+
+                DownloadManager dm = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
+                dm.enqueue(request);
+                Toast.makeText(MainActivity.this, "开始下载解密文件", Toast.LENGTH_SHORT).show();
+            }
         });
 
-        // 预加载在线网页
+        // 加载你指定的解密网址
         decryptWebView.loadUrl(ONLINE_DECRYPT_URL);
     }
 
-    /**
-     * 对外提供WebView实例（供DecryptFragment使用）
-     */
+    // 给DecryptFragment提供WebView实例
     public WebView getDecryptWebView() {
         return decryptWebView;
+    }
+
+    // 文件选择结果回调
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == FILE_CHOOSER_RESULT_CODE) {
+            if (mUploadMessage == null) return;
+            Uri[] result = WebChromeClient.FileChooserParams.parseResult(resultCode, data);
+            mUploadMessage.onReceiveValue(result);
+            mUploadMessage = null;
+        }
+    }
+
+    // WebView生命周期管理
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if (decryptWebView != null) decryptWebView.onPause();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (decryptWebView != null) decryptWebView.onResume();
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        // 释放WebView资源
         if (decryptWebView != null) {
             decryptWebView.stopLoading();
-            decryptWebView.removeAllViews();
             decryptWebView.destroy();
-            decryptWebView = null;
+        }
+        if (mUploadMessage != null) {
+            mUploadMessage.onReceiveValue(null);
+            mUploadMessage = null;
         }
     }
 }

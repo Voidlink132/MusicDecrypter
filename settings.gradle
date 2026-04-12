@@ -1,11 +1,14 @@
 pluginManagement {
+    plugins {
+        // 和你的Gradle 8.13.2完全对齐
+        id 'com.android.application' version '8.13.2' apply false
+        id 'com.android.library' version '8.13.2' apply false
+    }
     repositories {
-        // 国内阿里云镜像加速，解决国内网络同步慢/失败问题
-        maven { url 'https://maven.aliyun.com/repository/google' }
-        maven { url 'https://maven.aliyun.com/repository/central' }
-        maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
-        maven { url 'https://maven.aliyun.com/repository/public' }
-        // 官方仓库兜底
+        maven { url = 'https://maven.aliyun.com/repository/google' }
+        maven { url = 'https://maven.aliyun.com/repository/central' }
+        maven { url = 'https://maven.aliyun.com/repository/gradle-plugin' }
+        maven { url = 'https://maven.aliyun.com/repository/public' }
         google()
         mavenCentral()
         gradlePluginPortal()
@@ -15,16 +18,12 @@ pluginManagement {
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
-        // 国内阿里云镜像加速
-        maven { url 'https://maven.aliyun.com/repository/google' }
-        maven { url 'https://maven.aliyun.com/repository/central' }
-        maven { url 'https://maven.aliyun.com/repository/public' }
-        // 官方仓库兜底
+        maven { url = 'https://maven.aliyun.com/repository/google' }
+        maven { url = 'https://maven.aliyun.com/repository/central' }
+        maven { url = 'https://maven.aliyun.com/repository/public' }
         google()
         mavenCentral()
     }
 }
-
-// 这里和你GitHub原项目名保持一致，不要修改
 rootProject.name = "MusicDecrypter"
 include ':app'

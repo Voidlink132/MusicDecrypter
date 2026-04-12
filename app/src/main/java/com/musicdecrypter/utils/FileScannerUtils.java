@@ -5,6 +5,8 @@ import android.util.Log;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -23,26 +25,25 @@ public class FileScannerUtils {
         public String getPath() { return path; }
     }
 
-    // 核心优化：全路径覆盖，兼容大小写、多APP版本、沙盒目录
     public static final List<MusicDir> MUSIC_DIR_LIST = new ArrayList<>();
     static {
         String absoluteRoot = "/storage/emulated/0";
         String envRoot = Environment.getExternalStorageDirectory().getAbsolutePath();
 
-        // 网易云音乐（大小写+多路径）
+        // 网易云音乐
         addMusicDir("网易云音乐", absoluteRoot + "/Download/netease/cloudmusic/Music/");
         addMusicDir("网易云音乐", absoluteRoot + "/Download/Netease/CloudMusic/Music/");
         addMusicDir("网易云音乐", absoluteRoot + "/netease/cloudmusic/Music/");
         addMusicDir("网易云音乐", absoluteRoot + "/Netease/CloudMusic/Music/");
         addMusicDir("网易云音乐", absoluteRoot + "/Android/data/com.netease.cloudmusic/files/Download/");
 
-        // QQ音乐（大小写+多路径）
+        // QQ音乐
         addMusicDir("QQ音乐", absoluteRoot + "/Music/qqmusic/song/");
         addMusicDir("QQ音乐", absoluteRoot + "/QQMusic/song/");
         addMusicDir("QQ音乐", absoluteRoot + "/tencent/QQMusic/song/");
         addMusicDir("QQ音乐", absoluteRoot + "/Android/data/com.tencent.qqmusic/files/Music/");
 
-        // 酷狗音乐（大小写+多路径）
+        // 酷狗音乐
         addMusicDir("酷狗音乐", absoluteRoot + "/Download/kgmusic/download/");
         addMusicDir("酷狗音乐", absoluteRoot + "/KuGou/download/");
         addMusicDir("酷狗音乐", absoluteRoot + "/Android/data/com.kugou.android/files/download/");
@@ -51,18 +52,16 @@ public class FileScannerUtils {
         addMusicDir("酷我音乐", absoluteRoot + "/kuwo/download/music/");
         addMusicDir("酷我音乐", absoluteRoot + "/Android/data/cn.kuwo.player/files/download/");
 
-        // 通用兜底目录
+        // 通用目录
         addMusicDir("下载目录", absoluteRoot + "/Download/");
         addMusicDir("音乐目录", absoluteRoot + "/Music/");
         addMusicDir("根目录", absoluteRoot + "/");
 
-        // 兼容Environment路径
         addMusicDir("网易云音乐", envRoot + "/netease/cloudmusic/Music/");
         addMusicDir("QQ音乐", envRoot + "/QQMusic/song/");
         addMusicDir("酷狗音乐", envRoot + "/KuGou/download/");
     }
 
-    // 去重添加目录，避免重复扫描
     private static void addMusicDir(String name, String path) {
         for (MusicDir dir : MUSIC_DIR_LIST) {
             if (dir.getPath().equals(path)) return;
@@ -70,10 +69,10 @@ public class FileScannerUtils {
         MUSIC_DIR_LIST.add(new MusicDir(name, path));
     }
 
-    // 支持的加密格式（覆盖主流平台）
     private static final String[] SUPPORT_EXTS = {
             ".ncm", ".mflac", ".mgg", ".kgm", ".kgma", ".kwm",
-            ".qmc0", ".qmc1", ".qmc2", ".qmc3", ".qmcflac", ".qmcogg"
+            ".qmc0", ".qmc1", ".qmc2", ".qmc3", ".qmcflac", ".qmcogg",
+            ".mp3", ".ogg", ".flac", ".wav", ".m4a" // 增加普通格式支持
     };
 
     public static class MusicFileInfo {
@@ -87,28 +86,14 @@ public class FileScannerUtils {
         }
     }
 
-    // 核心扫描方法：遍历所有目录，递归扫描子目录
     public static List<MusicFileInfo> scanAllMusicFiles() {
         Set<String> scannedPaths = new HashSet<>();
         List<MusicFileInfo> resultList = new ArrayList<>();
 
-        Log.d(TAG, "扫描目录总数：" + MUSIC_DIR_LIST.size());
         for (MusicDir dir : MUSIC_DIR_LIST) {
             File targetDir = new File(dir.getPath());
-            if (!targetDir.exists()) {
-                Log.d(TAG, "目录不存在：" + dir.getPath());
-                continue;
-            }
-            if (!targetDir.isDirectory()) {
-                Log.d(TAG, "非目录：" + dir.getPath());
-                continue;
-            }
-            if (!targetDir.canRead()) {
-                Log.e(TAG, "无权限：" + dir.getPath());
-                continue;
-            }
+            if (!targetDir.exists() || !targetDir.isDirectory() || !targetDir.canRead()) continue;
 
-            // 递归扫描当前目录及子目录
             List<MusicFileInfo> dirFiles = scanDirRecursive(targetDir, dir.getName());
             for (MusicFileInfo file : dirFiles) {
                 if (!scannedPaths.contains(file.fullPath)) {
@@ -117,11 +102,31 @@ public class FileScannerUtils {
                 }
             }
         }
-        Log.d(TAG, "扫描完成，去重后文件数：" + resultList.size());
+
+        // 排序逻辑：网易云、QQ、酷狗、酷我 优先
+        Collections.sort(resultList, new Comparator<MusicFileInfo>() {
+            @Override
+            public int compare(MusicFileInfo o1, MusicFileInfo o2) {
+                int p1 = getPlatformPriority(o1.platform);
+                int p2 = getPlatformPriority(o2.platform);
+                if (p1 != p2) return p1 - p2;
+                return o1.fileName.compareToIgnoreCase(o2.fileName);
+            }
+
+            private int getPlatformPriority(String platform) {
+                switch (platform) {
+                    case "网易云音乐": return 1;
+                    case "QQ音乐": return 2;
+                    case "酷狗音乐": return 3;
+                    case "酷我音乐": return 4;
+                    default: return 10;
+                }
+            }
+        });
+
         return resultList;
     }
 
-    // 递归扫描子目录
     private static List<MusicFileInfo> scanDirRecursive(File currentDir, String platform) {
         List<MusicFileInfo> fileList = new ArrayList<>();
         File[] files = currentDir.listFiles();
@@ -137,6 +142,14 @@ public class FileScannerUtils {
                     }
                 }
             } else if (f.isDirectory()) {
+                // 排除 Android/data 目录下的非目标文件夹扫描，减少耗时
+                if (currentDir.getAbsolutePath().endsWith("/Android/data") && 
+                    !f.getAbsolutePath().contains("netease") && 
+                    !f.getAbsolutePath().contains("tencent") && 
+                    !f.getAbsolutePath().contains("kugou") && 
+                    !f.getAbsolutePath().contains("kuwo")) {
+                    continue;
+                }
                 fileList.addAll(scanDirRecursive(f, platform));
             }
         }

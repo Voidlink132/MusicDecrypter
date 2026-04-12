@@ -1,166 +1,293 @@
 package com.musicdecrypter.ui;
 
+import android.content.Context;
+import android.content.SharedPreferences;
+import android.graphics.Color;
 import android.os.Bundle;
+import android.os.Environment;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
+import android.widget.ProgressBar;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.cardview.widget.CardView;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.musicdecrypter.MainActivity;
 import com.musicdecrypter.R;
 import com.musicdecrypter.model.MusicFile;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class SearchFragment extends Fragment {
 
-    // 所有变量已提前声明，彻底解决找不到符号报错
     private RecyclerView recyclerView;
     private TextView tvEmpty;
+    private View llProgress;
+    private ProgressBar progressBar;
+    private TextView tvProgressMsg;
+
     private MusicAdapter adapter;
-    private List<MusicFile> musicList = new ArrayList<>();
+    private List<Object> displayList = new ArrayList<>();
+    private SharedPreferences sp;
 
-    // 你指定的3个固定扫描目录（和三周前完全一致）
-    private static final String[] SCAN_DIRECTORIES = {
-            "/storage/emulated/0/Download/netease/cloudmusic/Music/",
-            "/storage/emulated/0/Music/qqmusic/song/",
-            "/storage/emulated/0/Download/kgmusic/download/"
-    };
-
-    // 支持的加密音乐格式
     private static final String[] SUPPORT_EXTENSIONS = {
-            ".ncm", ".mgg", ".mflac",
-            ".kgm", ".kgma",
-            ".qmc0", ".qmcflac", ".qmc3"
+            ".ncm", ".mgg", ".mflac", ".kgm", ".kgma", ".qmc0", ".qmcflac", ".qmc3", ".qmcogg", ".tkm", ".kwm",
+            ".mp3", ".flac", ".ogg", ".wav", ".m4a", ".aac"
     };
 
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
-        // 绑定布局
-        View rootView = inflater.inflate(R.layout.fragment_search, container, false);
-
-        // 绑定控件（ID和布局文件完全对应）
-        recyclerView = rootView.findViewById(R.id.recyclerView);
-        tvEmpty = rootView.findViewById(R.id.tv_empty);
-
-        // 初始化列表
-        recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
-        adapter = new MusicAdapter(musicList);
-        recyclerView.setAdapter(adapter);
-
-        // 启动扫描（和三周前逻辑完全一致）
-        startScanMusic();
-
-        return rootView;
+        return inflater.inflate(R.layout.fragment_search, container, false);
     }
 
-    // 启动扫描（子线程执行，不卡UI）
-    private void startScanMusic() {
-        // 清空原有数据
-        musicList.clear();
-        adapter.notifyDataSetChanged();
-        tvEmpty.setVisibility(View.GONE);
+    @Override
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+        sp = requireContext().getSharedPreferences("config", Context.MODE_PRIVATE);
+        
+        recyclerView = view.findViewById(R.id.recyclerView);
+        tvEmpty = view.findViewById(R.id.tv_empty);
+        llProgress = view.findViewById(R.id.card_progress);
+        progressBar = view.findViewById(R.id.progressBar);
+        tvProgressMsg = view.findViewById(R.id.tv_progress_msg);
 
-        // 开启子线程扫描
-        new Thread(() -> {
-            // 遍历所有指定目录
-            for (String dirPath : SCAN_DIRECTORIES) {
-                File targetDir = new File(dirPath);
-                // 目录存在且是文件夹，才进行扫描
-                if (targetDir.exists() && targetDir.isDirectory()) {
-                    scanDirectory(targetDir);
+        recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
+        adapter = new MusicAdapter(displayList, new OnFileClickListener() {
+            @Override
+            public void onDecryptClick(MusicFile file) {
+                if (getActivity() instanceof MainActivity) {
+                    ((MainActivity) getActivity()).startDecryption(new File(file.getFilePath()));
                 }
             }
 
-            // 扫描完成，切回主线程更新UI
+            @Override
+            public void onManualUploadClick() {
+                if (getActivity() instanceof MainActivity) {
+                    ((MainActivity) getActivity()).triggerManualFilePicker();
+                }
+            }
+        });
+        recyclerView.setAdapter(adapter);
+    }
+
+    public void updateProgress(boolean visible, String step, int percent) {
+        if (llProgress == null) return;
+        llProgress.setVisibility(visible ? View.VISIBLE : View.GONE);
+        if (visible) {
+            if (step != null) tvProgressMsg.setText(step);
+            progressBar.setProgress(percent);
+        }
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        startScanMusic();
+    }
+
+    private void startScanMusic() {
+        boolean showOthers = sp.getBoolean("show_others", false);
+        
+        new Thread(() -> {
+            Map<String, List<MusicFile>> groupedFiles = new HashMap<>();
+            scan(Environment.getExternalStorageDirectory(), groupedFiles);
+            scanAndroidData(groupedFiles);
+
+            List<Object> newList = new ArrayList<>();
+            String[] prioritySources = {"网易云音乐", "QQ音乐", "酷狗音乐", "酷我音乐", "浏览器下载", "其他来源"};
+
+            for (String source : prioritySources) {
+                if (!showOthers && (source.equals("其他来源") || source.equals("浏览器下载"))) continue;
+
+                List<MusicFile> files = groupedFiles.get(source);
+                if (files != null && !files.isEmpty()) {
+                    newList.add(source);
+                    Collections.sort(files, (f1, f2) -> f1.getFileName().compareToIgnoreCase(f2.getFileName()));
+                    newList.addAll(files);
+                }
+            }
+            
+            // 在列表末尾添加一个占位符，用于显示“手动上传”Footer
+            newList.add(new FooterItem());
+
             if (getActivity() != null) {
                 getActivity().runOnUiThread(() -> {
+                    displayList.clear();
+                    displayList.addAll(newList);
                     adapter.notifyDataSetChanged();
-                    if (musicList.isEmpty()) {
-                        // 没有找到文件，显示空提示
-                        tvEmpty.setVisibility(View.VISIBLE);
-                    } else {
-                        // 找到文件，隐藏空提示，弹出吐司
-                        tvEmpty.setVisibility(View.GONE);
-                        Toast.makeText(getContext(), "扫描完成，共找到 " + musicList.size() + " 个加密音乐文件", Toast.LENGTH_SHORT).show();
-                    }
+                    tvEmpty.setVisibility(displayList.isEmpty() ? View.VISIBLE : View.GONE);
                 });
             }
         }).start();
     }
 
-    // 递归扫描目录（和三周前逻辑完全一致）
-    private void scanDirectory(File directory) {
-        // 如果是文件，判断是否是加密音乐
-        if (directory.isFile()) {
-            String fileName = directory.getName().toLowerCase();
-            // 遍历所有支持的格式
-            for (String ext : SUPPORT_EXTENSIONS) {
-                if (fileName.endsWith(ext)) {
-                    // 匹配到加密格式，加入列表
-                    musicList.add(new MusicFile(directory.getName(), directory.getAbsolutePath()));
-                    break;
-                }
+    private void scan(File dir, Map<String, List<MusicFile>> groupedFiles) {
+        File[] files = dir.listFiles();
+        if (files == null) return;
+        for (File file : files) {
+            if (file.isDirectory()) {
+                String dirName = file.getName();
+                if (dirName.startsWith(".") || dirName.equalsIgnoreCase("Android") || 
+                    dirName.equalsIgnoreCase("Pictures") || dirName.equalsIgnoreCase("DCIM")) continue;
+                scan(file, groupedFiles);
+            } else {
+                checkAndAddFile(file, groupedFiles);
             }
-            return;
-        }
-
-        // 如果是文件夹，遍历子文件
-        File[] childFiles = directory.listFiles();
-        if (childFiles == null) return;
-        for (File file : childFiles) {
-            scanDirectory(file);
         }
     }
 
-    // 列表适配器（内部类，和三周前完全一致）
-    static class MusicAdapter extends RecyclerView.Adapter<MusicAdapter.ViewHolder> {
+    private void scanAndroidData(Map<String, List<MusicFile>> groupedFiles) {
+        File dataDir = new File(Environment.getExternalStorageDirectory(), "Android/data");
+        if (!dataDir.exists() || !dataDir.isDirectory()) return;
+        String[] targetPkgs = {"com.netease.cloudmusic", "com.tencent.qqmusic", "com.kugou.android", "cn.kuwo.player"};
+        for (String pkg : targetPkgs) {
+            File pkgDir = new File(dataDir, pkg);
+            if (pkgDir.exists()) scanDeep(pkgDir, groupedFiles);
+        }
+    }
 
-        private final List<MusicFile> dataList;
+    private void scanDeep(File dir, Map<String, List<MusicFile>> groupedFiles) {
+        File[] files = dir.listFiles();
+        if (files == null) return;
+        for (File file : files) {
+            if (file.isDirectory()) scanDeep(file, groupedFiles);
+            else checkAndAddFile(file, groupedFiles);
+        }
+    }
 
-        public MusicAdapter(List<MusicFile> dataList) {
-            this.dataList = dataList;
+    private void checkAndAddFile(File file, Map<String, List<MusicFile>> groupedFiles) {
+        String name = file.getName().toLowerCase();
+        for (String ext : SUPPORT_EXTENSIONS) {
+            if (name.endsWith(ext)) {
+                String source = getSource(file.getAbsolutePath());
+                if (!groupedFiles.containsKey(source)) groupedFiles.put(source, new ArrayList<>());
+                boolean exists = false;
+                for (MusicFile mf : groupedFiles.get(source)) {
+                    if (mf.getFilePath().equals(file.getAbsolutePath())) { exists = true; break; }
+                }
+                if (!exists) groupedFiles.get(source).add(new MusicFile(file.getName(), file.getAbsolutePath()));
+                break;
+            }
+        }
+    }
+
+    private String getSource(String path) {
+        String p = path.toLowerCase();
+        if (p.contains("cloudmusic") || p.contains("netease")) return "网易云音乐";
+        if (p.contains("qqmusic") || p.contains("tencent") || p.contains("mqms")) return "QQ音乐";
+        if (p.contains("kgmusic") || p.contains("kugou")) return "酷狗音乐";
+        if (p.contains("kuwo")) return "酷我音乐";
+        if (p.contains("download")) return "浏览器下载";
+        return "其他来源";
+    }
+
+    static class FooterItem {}
+
+    interface OnFileClickListener { 
+        void onDecryptClick(MusicFile file); 
+        void onManualUploadClick();
+    }
+
+    static class MusicAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
+        private static final int TYPE_HEADER = 0;
+        private static final int TYPE_ITEM = 1;
+        private static final int TYPE_FOOTER = 2;
+        private final List<Object> data;
+        private final OnFileClickListener listener;
+
+        MusicAdapter(List<Object> data, OnFileClickListener listener) {
+            this.data = data;
+            this.listener = listener;
+        }
+
+        @Override
+        public int getItemViewType(int position) { 
+            if (data.get(position) instanceof String) return TYPE_HEADER;
+            if (data.get(position) instanceof FooterItem) return TYPE_FOOTER;
+            return TYPE_ITEM;
         }
 
         @NonNull
         @Override
-        public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-            View itemView = LayoutInflater.from(parent.getContext())
-                    .inflate(R.layout.item_music, parent, false);
-            return new ViewHolder(itemView);
+        public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+            if (viewType == TYPE_HEADER) return new HeaderViewHolder(LayoutInflater.from(parent.getContext()).inflate(R.layout.item_music_header, parent, false));
+            if (viewType == TYPE_FOOTER) return new FooterViewHolder(LayoutInflater.from(parent.getContext()).inflate(R.layout.item_music_footer, parent, false));
+            return new ItemViewHolder(LayoutInflater.from(parent.getContext()).inflate(R.layout.item_music_file, parent, false));
         }
 
         @Override
-        public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
-            MusicFile musicFile = dataList.get(position);
-            holder.tvFileName.setText(musicFile.getFileName());
-            holder.tvFilePath.setText(musicFile.getFilePath());
-        }
-
-        @Override
-        public int getItemCount() {
-            return dataList.size();
-        }
-
-        // 列表项控件绑定
-        static class ViewHolder extends RecyclerView.ViewHolder {
-            TextView tvFileName;
-            TextView tvFilePath;
-
-            public ViewHolder(@NonNull View itemView) {
-                super(itemView);
-                tvFileName = itemView.findViewById(R.id.tv_file_name);
-                tvFilePath = itemView.findViewById(R.id.tv_file_path);
+        public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
+            if (holder instanceof HeaderViewHolder) {
+                HeaderViewHolder h = (HeaderViewHolder) holder;
+                String source = (String) data.get(position);
+                h.tvHeader.setText(source);
+                h.tvHeader.setTextColor(getPlatformColor(source));
+            } else if (holder instanceof ItemViewHolder) {
+                MusicFile file = (MusicFile) data.get(position);
+                ItemViewHolder h = (ItemViewHolder) holder;
+                h.tvName.setText(file.getFileName());
+                h.tvPath.setText(file.getFilePath());
+                String source = getSourceFromPath(file.getFilePath());
+                int color = getPlatformColor(source);
+                String name = file.getFileName().toLowerCase();
+                h.btnDecrypt.setText((name.endsWith(".mp3") || name.endsWith(".ogg") || name.endsWith(".flac") || name.endsWith(".wav") || name.endsWith(".m4a")) ? "保存" : "解密");
+                h.btnDecrypt.setTextColor(color);
+                h.btnDecrypt.setOnClickListener(v -> { if (listener != null) listener.onDecryptClick(file); });
+            } else if (holder instanceof FooterViewHolder) {
+                holder.itemView.setOnClickListener(v -> { if (listener != null) listener.onManualUploadClick(); });
             }
+        }
+
+        private int getPlatformColor(String source) {
+            switch (source) {
+                case "网易云音乐": return Color.parseColor("#FF4081");
+                case "QQ音乐": return Color.parseColor("#4CAF50");
+                case "酷狗音乐": return Color.parseColor("#2196F3");
+                case "酷我音乐": return Color.parseColor("#FF9800");
+                case "浏览器下载": return Color.parseColor("#607D8B");
+                default: return Color.BLACK;
+            }
+        }
+
+        private String getSourceFromPath(String path) {
+            String p = path.toLowerCase();
+            if (p.contains("cloudmusic") || p.contains("netease")) return "网易云音乐";
+            if (p.contains("qqmusic") || p.contains("tencent") || p.contains("mqms")) return "QQ音乐";
+            if (p.contains("kgmusic") || p.contains("kugou")) return "酷狗音乐";
+            if (p.contains("kuwo")) return "酷我音乐";
+            if (p.contains("download")) return "浏览器下载";
+            return "其他来源";
+        }
+
+        @Override
+        public int getItemCount() { return data.size(); }
+
+        static class HeaderViewHolder extends RecyclerView.ViewHolder {
+            TextView tvHeader;
+            HeaderViewHolder(View v) { super(v); tvHeader = v.findViewById(R.id.tv_header); v.setPadding(v.getPaddingLeft(), 32, v.getPaddingRight(), 8); }
+        }
+
+        static class ItemViewHolder extends RecyclerView.ViewHolder {
+            TextView tvName, tvPath;
+            Button btnDecrypt;
+            ItemViewHolder(View v) { super(v); tvName = v.findViewById(R.id.tv_file_name); tvPath = v.findViewById(R.id.tv_file_path); btnDecrypt = v.findViewById(R.id.btn_decrypt); v.setPadding(v.getPaddingLeft(), 16, v.getPaddingRight(), 16); }
+        }
+
+        static class FooterViewHolder extends RecyclerView.ViewHolder {
+            FooterViewHolder(View v) { super(v); }
         }
     }
 }

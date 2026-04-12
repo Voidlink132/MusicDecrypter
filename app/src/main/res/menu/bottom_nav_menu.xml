@@ -6,7 +6,7 @@
         android:icon="@android:drawable/ic_menu_search" />
     <item
         android:id="@+id/nav_decrypt"
-        android:title="手动解密"
+        android:title="解密"
         android:icon="@android:drawable/ic_menu_save" />
     <item
         android:id="@+id/nav_settings"

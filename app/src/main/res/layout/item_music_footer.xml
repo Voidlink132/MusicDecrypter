@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="24dp"
+    android:gravity="center">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="未找到文件？试试手动选择或者去设置打开“展示其他来源”"
+        android:textColor="#9E9E9E"
+        android:textSize="14sp" />
+
+    <Button
+        android:id="@+id/btn_manual_upload"
+        style="@style/Widget.MaterialComponents.Button.TextButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="从文件夹选择文件"
+        android:textColor="#2196F3" />
+
+</LinearLayout>

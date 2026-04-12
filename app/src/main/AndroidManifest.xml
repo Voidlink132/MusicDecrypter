@@ -1,10 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 根标签名正确、命名空间完整无拼写错误 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           xmlns:tools="http://schemas.android.com/tools"
           package="com.musicdecrypter">
 
-    <!-- 权限声明，适配Android全版本 -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
@@ -14,7 +12,6 @@
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
                      tools:ignore="ScopedStorage" />
 
-    <!-- 所有属性完全包裹在application标签的尖括号内，无拼写错误 -->
     <application
             android:allowBackup="true"
             android:icon="@android:mipmap/sym_def_app_icon"
@@ -23,9 +20,10 @@
             android:supportsRtl="true"
             android:theme="@style/Theme.MusicDecrypter"
             android:usesCleartextTraffic="true"
+            android:hardwareAccelerated="true"
+            android:largeHeap="true"
             tools:targetApi="31">
 
-        <!-- 你的MainActivity配置保持不变 -->
         <activity
                 android:name=".MainActivity"
                 android:exported="true">
@@ -35,7 +33,16 @@
             </intent-filter>
         </activity>
 
-    </application>
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
 
+    </application>
 
 </manifest>

@@ -28,6 +28,10 @@ android {
 }
 
 dependencies {
+    //Markwon核心包
+    implementation 'io.noties.markwon:core:4.6.2'
+    implementation 'io.noties.markwon:image:4.6.2'
+    implementation 'io.noties.markwon:ext-tables:4.6.2'
     // 安卓基础核心依赖
     implementation 'androidx.appcompat:appcompat:1.7.1'
     implementation 'com.google.android.material:material:1.13.0'

@@ -1,6 +1,5 @@
 package com.musicdecrypter;
 
-import android.app.DownloadManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -15,8 +14,6 @@ import android.util.Log;
 import android.webkit.JavascriptInterface;
 import android.webkit.SslErrorHandler;
 import android.webkit.URLUtil;
-import android.webkit.ValueCallback;
-import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
@@ -28,7 +25,6 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.content.FileProvider;
 import androidx.fragment.app.Fragment;
 import androidx.viewpager2.adapter.FragmentStateAdapter;
 import androidx.viewpager2.widget.ViewPager2;
@@ -42,7 +38,6 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.channels.FileChannel;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -102,9 +97,9 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public Fragment createFragment(int position) {
                 switch (position) {
-                    case 0: return new SearchFragment();
                     case 1: return new com.musicdecrypter.ui.DecryptFragment();
                     case 2: return new com.musicdecrypter.ui.SettingsFragment();
+                    case 0:
                     default: return new SearchFragment();
                 }
             }
@@ -281,7 +276,7 @@ public class MainActivity extends AppCompatActivity {
                     }
                 }
             } catch (Exception ignored) {}
-        } else if ("file".equals(uri.getScheme())) {
+        } else if ("file".equals(uri.getScheme()) && uri.getPath() != null) {
             name = new File(uri.getPath()).getName();
         }
         return name;
@@ -347,10 +342,16 @@ public class MainActivity extends AppCompatActivity {
 
     private void saveNormalFile(File sourceFile) {
         File destDir = new File(Environment.getExternalStorageDirectory(), "Music/MusicDecrypter");
-        if (!destDir.exists()) destDir.mkdirs();
+        if (!destDir.exists()) {
+            boolean ignored = destDir.mkdirs();
+        }
         File destFile = new File(destDir, sourceFile.getName());
         try (FileInputStream fis = new FileInputStream(sourceFile); FileOutputStream fos = new FileOutputStream(destFile)) {
-            fis.getChannel().transferTo(0, fis.getChannel().size(), fos.getChannel());
+            byte[] buffer = new byte[8192];
+            int len;
+            while ((len = fis.read(buffer)) > 0) {
+                fos.write(buffer, 0, len);
+            }
             Toast.makeText(this, "文件已保存至音乐目录", Toast.LENGTH_SHORT).show();
             
             checkAndFetchLyric(sourceFile.getName(), destDir);
@@ -362,7 +363,7 @@ public class MainActivity extends AppCompatActivity {
     private void checkAndFetchLyric(String fileName, File saveDir) {
         if (sp.getBoolean("fetch_lyric", false)) {
             updateSearchProgress(true, "正在匹配歌词...", 98);
-            LyricFetcher.fetchLyric(fileName, saveDir, new LyricFetcher.LyricCallback() {
+            LyricFetcher.fetchLyric(MainActivity.this, fileName, saveDir, new LyricFetcher.LyricCallback() {
                 @Override
                 public void onSuccess(File lyricFile) {
                     runOnUiThread(() -> {
@@ -387,29 +388,31 @@ public class MainActivity extends AppCompatActivity {
             updateSearchProgress(true, step, percent);
         }
 
-        private FileOutputStream fos;
+        private FileOutputStream currentFos;
         private File currentOutputFile;
 
         @JavascriptInterface
         public void startDownload(String name) {
             try {
                 File d = new File(Environment.getExternalStorageDirectory(), "Music/MusicDecrypter");
-                if (!d.exists()) d.mkdirs();
+                if (!d.exists()) {
+                    boolean ignored = d.mkdirs();
+                }
                 currentOutputFile = new File(d, name);
-                fos = new FileOutputStream(currentOutputFile);
+                currentFos = new FileOutputStream(currentOutputFile);
                 updateSearchProgress(true, "正在写入手机存储...", 95);
-            } catch (Exception e) { e.printStackTrace(); }
+            } catch (Exception e) { Log.e("Download", "Error", e); }
         }
 
         @JavascriptInterface
         public void appendChunk(String b64) {
-            try { if (fos != null) fos.write(Base64.decode(b64, Base64.DEFAULT)); } catch (Exception ignored) {}
+            try { if (currentFos != null) currentFos.write(Base64.decode(b64, Base64.DEFAULT)); } catch (Exception ignored) {}
         }
 
         @JavascriptInterface
         public void endDownload(String name) {
             try {
-                if (fos != null) { fos.close(); fos = null; }
+                if (currentFos != null) { currentFos.close(); currentFos = null; }
                 runOnUiThread(() -> {
                     updateSearchProgress(false, "", 100);
                     Toast.makeText(MainActivity.this, "解密成功并已保存！", Toast.LENGTH_LONG).show();
@@ -422,7 +425,7 @@ public class MainActivity extends AppCompatActivity {
                     targetFileName = null;
                     isDownloading = false;
                 });
-            } catch (Exception e) { e.printStackTrace(); }
+            } catch (Exception e) { Log.e("Download", "Error", e); }
         }
 
         @JavascriptInterface
@@ -439,16 +442,6 @@ public class MainActivity extends AppCompatActivity {
     public WebView getDecryptWebView() { return decryptWebView; }
 
     private static class MimeTypeMapUtils {
-        public static String getMimeType(String fileName) {
-            String name = fileName.toLowerCase();
-            if (name.endsWith(".flac")) return "audio/flac";
-            if (name.endsWith(".mp3")) return "audio/mpeg";
-            if (name.endsWith(".ogg")) return "audio/ogg";
-            if (name.endsWith(".wav")) return "audio/x-wav";
-            if (name.endsWith(".m4a")) return "audio/mp4";
-            return "audio/*";
-        }
-
         public static String getExtensionFromMimeType(String mimeType) {
             if (mimeType == null) return null;
             if (mimeType.contains("flac")) return "flac";

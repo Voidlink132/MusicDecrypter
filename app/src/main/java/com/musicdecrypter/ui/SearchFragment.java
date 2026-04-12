@@ -14,7 +14,6 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.cardview.widget.CardView;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -34,9 +33,10 @@ public class SearchFragment extends Fragment {
 
     private RecyclerView recyclerView;
     private TextView tvEmpty;
-    private View llProgress;
+    private View cardProgress;
     private ProgressBar progressBar;
     private TextView tvProgressMsg;
+    private TextView tvProgressPercent;
 
     private MusicAdapter adapter;
     private List<Object> displayList = new ArrayList<>();
@@ -60,9 +60,10 @@ public class SearchFragment extends Fragment {
         
         recyclerView = view.findViewById(R.id.recyclerView);
         tvEmpty = view.findViewById(R.id.tv_empty);
-        llProgress = view.findViewById(R.id.card_progress);
+        cardProgress = view.findViewById(R.id.card_progress);
         progressBar = view.findViewById(R.id.progressBar);
         tvProgressMsg = view.findViewById(R.id.tv_progress_msg);
+        tvProgressPercent = view.findViewById(R.id.tv_progress_percent);
 
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
         adapter = new MusicAdapter(displayList, new OnFileClickListener() {
@@ -84,11 +85,22 @@ public class SearchFragment extends Fragment {
     }
 
     public void updateProgress(boolean visible, String step, int percent) {
-        if (llProgress == null) return;
-        llProgress.setVisibility(visible ? View.VISIBLE : View.GONE);
-        if (visible) {
-            if (step != null) tvProgressMsg.setText(step);
-            progressBar.setProgress(percent);
+        if (cardProgress == null) return;
+        // 恢复始终显示卡片样式，不再切换 GONE
+        cardProgress.setVisibility(View.VISIBLE);
+        
+        if (step != null && !step.isEmpty()) {
+            tvProgressMsg.setText(step);
+        }
+        
+        progressBar.setProgress(percent);
+        if (tvProgressPercent != null) {
+            tvProgressPercent.setText(percent + "%");
+        }
+        
+        // 如果任务完成，可以考虑在这里做一些 UI 反馈，但保持卡片存在
+        if (percent == 100 && !visible) {
+            // 任务结束逻辑，可以在此重置文字或保持 100% 状态
         }
     }
 
@@ -120,7 +132,6 @@ public class SearchFragment extends Fragment {
                 }
             }
             
-            // 在列表末尾添加一个占位符，用于显示“手动上传”Footer
             newList.add(new FooterItem());
 
             if (getActivity() != null) {

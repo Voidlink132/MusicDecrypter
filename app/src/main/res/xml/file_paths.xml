@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 原有的 Download 路径 -->
     <external-path name="downloads" path="Download/MusicDecrypter/"/>
+    <!-- 新增：实际保存音频的 Music 路径 -->
+    <external-path name="music" path="Music/MusicDecrypter/"/>
     <external-files-path name="files" path="."/>
 </paths>

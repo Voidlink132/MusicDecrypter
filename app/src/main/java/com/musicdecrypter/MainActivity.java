@@ -1,7 +1,9 @@
 package com.musicdecrypter;
 
 import android.app.DownloadManager;
+import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -33,6 +35,7 @@ import androidx.viewpager2.widget.ViewPager2;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.musicdecrypter.ui.SearchFragment;
+import com.musicdecrypter.util.LyricFetcher;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -56,11 +59,13 @@ public class MainActivity extends AppCompatActivity {
     private String targetFileName; 
     private boolean isPageFinished = false;
     private boolean isDownloading = false; // 下载锁，防止重复下载
+    private SharedPreferences sp;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        sp = getSharedPreferences("config", Context.MODE_PRIVATE);
 
         checkStoragePermission();
         initBottomNav();
@@ -175,7 +180,6 @@ public class MainActivity extends AppCompatActivity {
         });
 
         decryptWebView.setDownloadListener((url, userAgent, contentDisposition, mimeType, contentLength) -> {
-            // 关键修复：如果已经在下载中，直接拦截重复请求
             if (isDownloading) return;
             isDownloading = true;
 
@@ -220,7 +224,7 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
         
-        this.isDownloading = false; // 重置下载锁
+        this.isDownloading = false;
         this.pendingFile = file;
         this.targetFileName = file.getName(); 
         updateSearchProgress(true, "正在准备文件...", 10);
@@ -237,7 +241,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void triggerManualFilePicker() {
-        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT); // 使用 ACTION_OPEN_DOCUMENT 唤起系统文件选择器
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
         intent.addCategory(Intent.CATEGORY_OPENABLE);
         intent.setType("*/*");
         startActivityForResult(intent, FILE_CHOOSER_RESULT_CODE);
@@ -348,21 +352,32 @@ public class MainActivity extends AppCompatActivity {
         try (FileInputStream fis = new FileInputStream(sourceFile); FileOutputStream fos = new FileOutputStream(destFile)) {
             fis.getChannel().transferTo(0, fis.getChannel().size(), fos.getChannel());
             Toast.makeText(this, "文件已保存至音乐目录", Toast.LENGTH_SHORT).show();
-            // 弹出打开方式
-            openDecryptedFile(destFile);
+            
+            checkAndFetchLyric(sourceFile.getName(), destDir);
+            
             sendBroadcast(new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, Uri.fromFile(destFile)));
         } catch (IOException ignored) {}
     }
 
-    private void openDecryptedFile(File file) {
-        try {
-            Uri contentUri = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", file);
-            Intent intent = new Intent(Intent.ACTION_VIEW);
-            intent.setDataAndType(contentUri, MimeTypeMapUtils.getMimeType(file.getName()));
-            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            startActivity(Intent.createChooser(intent, "打开文件"));
-        } catch (Exception e) {
-            Toast.makeText(this, "无法呼起打开方式", Toast.LENGTH_SHORT).show();
+    private void checkAndFetchLyric(String fileName, File saveDir) {
+        if (sp.getBoolean("fetch_lyric", false)) {
+            updateSearchProgress(true, "正在匹配歌词...", 98);
+            LyricFetcher.fetchLyric(fileName, saveDir, new LyricFetcher.LyricCallback() {
+                @Override
+                public void onSuccess(File lyricFile) {
+                    runOnUiThread(() -> {
+                        updateSearchProgress(false, "", 100);
+                        Toast.makeText(MainActivity.this, "歌词已自动匹配下载", Toast.LENGTH_SHORT).show();
+                        sendBroadcast(new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, Uri.fromFile(lyricFile)));
+                    });
+                }
+
+                @Override
+                public void onError(String msg) {
+                    Log.e("Lyric", msg);
+                    updateSearchProgress(false, "", 100);
+                }
+            });
         }
     }
 
@@ -400,12 +415,12 @@ public class MainActivity extends AppCompatActivity {
                     Toast.makeText(MainActivity.this, "解密成功并已保存！", Toast.LENGTH_LONG).show();
                     
                     if (currentOutputFile != null) {
-                        openDecryptedFile(currentOutputFile);
+                        checkAndFetchLyric(name, currentOutputFile.getParentFile());
                         sendBroadcast(new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, Uri.fromFile(currentOutputFile)));
                     }
                     
                     targetFileName = null;
-                    isDownloading = false; // 下载结束，重置锁
+                    isDownloading = false;
                 });
             } catch (Exception e) { e.printStackTrace(); }
         }
@@ -416,7 +431,7 @@ public class MainActivity extends AppCompatActivity {
                 Toast.makeText(MainActivity.this, "解密失败: " + msg, Toast.LENGTH_LONG).show();
                 updateSearchProgress(false, null, 0);
                 targetFileName = null;
-                isDownloading = false; // 出错，重置锁
+                isDownloading = false;
             });
         }
     }

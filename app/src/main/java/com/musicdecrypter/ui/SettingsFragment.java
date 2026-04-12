@@ -1,7 +1,6 @@
 package com.musicdecrypter.ui;
 
 import android.app.Activity;
-import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -13,11 +12,13 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
-import android.provider.DocumentsContract;
 import android.provider.Settings;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.EditText;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -98,7 +99,19 @@ public class SettingsFragment extends Fragment {
         View layoutSourceCode = view.findViewById(R.id.tv_source_code);
         View layoutLicenses = view.findViewById(R.id.layout_license);
         View layoutAbout = view.findViewById(R.id.tv_about);
+        
         SwitchMaterial switchShowOthers = view.findViewById(R.id.switch_show_others);
+        SwitchMaterial switchFetchLyric = view.findViewById(R.id.switch_fetch_lyric);
+
+        // 歌词二级设置相关组件
+        View layoutLyricSettings = view.findViewById(R.id.layout_lyric_settings);
+        TextView tvLyricEncoding = view.findViewById(R.id.tv_lyric_encoding);
+        TextView tvLyricFormat = view.findViewById(R.id.tv_lyric_format);
+        SwitchMaterial switchBilingualLyric = view.findViewById(R.id.switch_bilingual_lyric);
+        View layoutBilingualOptions = view.findViewById(R.id.layout_bilingual_options);
+        TextView tvBilingualType = view.findViewById(R.id.tv_bilingual_type);
+        View layoutCombineSymbol = view.findViewById(R.id.layout_combine_symbol);
+        EditText etCombineSymbol = view.findViewById(R.id.et_combine_symbol);
 
         // 1. 设置路径和版本信息
         String defaultPath = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC).getAbsolutePath() + "/MusicDecrypter";
@@ -117,7 +130,76 @@ public class SettingsFragment extends Fragment {
         switchShowOthers.setChecked(sp.getBoolean("show_others", false));
         switchShowOthers.setOnCheckedChangeListener((buttonView, isChecked) -> {
             sp.edit().putBoolean("show_others", isChecked).apply();
-            Toast.makeText(getContext(), isChecked ? "已开启显示其他来源" : "已隐藏其他来源", Toast.LENGTH_SHORT).show();
+        });
+
+        // 歌词主开关
+        boolean fetchLyric = sp.getBoolean("fetch_lyric", false);
+        switchFetchLyric.setChecked(fetchLyric);
+        layoutLyricSettings.setVisibility(fetchLyric ? View.VISIBLE : View.GONE);
+        switchFetchLyric.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            sp.edit().putBoolean("fetch_lyric", isChecked).apply();
+            layoutLyricSettings.setVisibility(isChecked ? View.VISIBLE : View.GONE);
+        });
+
+        // 编码选择
+        tvLyricEncoding.setText(sp.getString("lyric_encoding", "UTF-8"));
+        view.findViewById(R.id.btn_lyric_encoding).setOnClickListener(v -> {
+            String[] encodings = {"UTF-8", "UTF-16 LE"};
+            new AlertDialog.Builder(requireContext())
+                    .setTitle("选择歌词输出编码")
+                    .setItems(encodings, (dialog, which) -> {
+                        String selected = encodings[which];
+                        sp.edit().putString("lyric_encoding", selected).apply();
+                        tvLyricEncoding.setText(selected);
+                    }).show();
+        });
+
+        // 格式选择
+        tvLyricFormat.setText(sp.getString("lyric_format", "LRC"));
+        view.findViewById(R.id.btn_lyric_format).setOnClickListener(v -> {
+            String[] formats = {"LRC", "SRT"};
+            new AlertDialog.Builder(requireContext())
+                    .setTitle("选择歌词输出格式")
+                    .setItems(formats, (dialog, which) -> {
+                        String selected = formats[which];
+                        sp.edit().putString("lyric_format", selected).apply();
+                        tvLyricFormat.setText(selected);
+                    }).show();
+        });
+
+        // 双语开关
+        boolean bilingual = sp.getBoolean("bilingual_lyric", false);
+        switchBilingualLyric.setChecked(bilingual);
+        layoutBilingualOptions.setVisibility(bilingual ? View.VISIBLE : View.GONE);
+        switchBilingualLyric.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            sp.edit().putBoolean("bilingual_lyric", isChecked).apply();
+            layoutBilingualOptions.setVisibility(isChecked ? View.VISIBLE : View.GONE);
+        });
+
+        // 双语类型
+        String bilingualType = sp.getString("bilingual_type", "合并");
+        tvBilingualType.setText(bilingualType);
+        layoutCombineSymbol.setVisibility("合并".equals(bilingualType) ? View.VISIBLE : View.GONE);
+        view.findViewById(R.id.btn_bilingual_type).setOnClickListener(v -> {
+            String[] types = {"合并", "交错", "独立"};
+            new AlertDialog.Builder(requireContext())
+                    .setTitle("双语展示方式")
+                    .setItems(types, (dialog, which) -> {
+                        String selected = types[which];
+                        sp.edit().putString("bilingual_type", selected).apply();
+                        tvBilingualType.setText(selected);
+                        layoutCombineSymbol.setVisibility("合并".equals(selected) ? View.VISIBLE : View.GONE);
+                    }).show();
+        });
+
+        // 合并符
+        etCombineSymbol.setText(sp.getString("combine_symbol", "/"));
+        etCombineSymbol.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            @Override public void afterTextChanged(Editable s) {
+                sp.edit().putString("combine_symbol", s.toString()).apply();
+            }
         });
 
         // 3. 存储设置点击
@@ -173,14 +255,12 @@ public class SettingsFragment extends Fragment {
         if (!file.exists()) file.mkdirs();
         
         try {
-            // 终极策略：通过定向唤起系统文件管理器，实现图2风格精准跳转
             Intent intent = new Intent(Intent.ACTION_VIEW);
             Uri uri = Uri.parse("content://com.android.externalstorage.documents/document/primary%3AMusic%2FMusicDecrypter");
             intent.setDataAndType(uri, "vnd.android.cursor.dir/document");
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
 
-            // 常见系统文件管理器包名白名单，确保唤起的是“图2”样式的浏览器
             String[] targetPackages = {
                 "com.google.android.documentsui", 
                 "com.android.documentsui", 
@@ -201,7 +281,7 @@ public class SettingsFragment extends Fragment {
             }
 
             if (!success) {
-                intent.setPackage(null); // 清除定向包名，弹出选择器
+                intent.setPackage(null);
                 startActivity(Intent.createChooser(intent, "使用文件管理打开"));
             }
         } catch (Exception e) {

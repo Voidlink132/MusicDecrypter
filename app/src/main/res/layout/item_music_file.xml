@@ -2,27 +2,27 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="horizontal"
-    android:paddingHorizontal="16dp"
-    android:paddingVertical="12dp"
-    android:gravity="center_vertical">
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:background="?attr/selectableItemBackground">
 
     <TextView
         android:id="@+id/tv_file_name"
-        android:layout_width="0dp"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_weight="1"
         android:textSize="16sp"
-        android:textColor="#333333"
+        android:textColor="@android:color/black"
         android:maxLines="1"
         android:ellipsize="end"/>
 
-    <Button
-        android:id="@+id/btn_decrypt"
-        android:layout_width="wrap_content"
+    <TextView
+        android:id="@+id/tv_file_path"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="解密并下载"
-        android:backgroundTint="@color/purple_500"
-        android:paddingHorizontal="12dp"/>
+        android:textSize="12sp"
+        android:textColor="@android:color/darker_gray"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:layout_marginTop="4dp"/>
 
 </LinearLayout>

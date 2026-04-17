@@ -1,51 +1,65 @@
-# MusicDecrypter - 安卓音乐自动解密工具
-纯Java构建的安卓端音乐文件自动解密工具，基于 unlock-music 在线解密能力，支持主流音乐平台加密格式一键解密，全程无需手动操作，自动保存解密后的文件。
+# 🎵 MusicDecrypter - 安卓音乐自动解密 & 歌词匹配工具
 
-## 功能特性
-- ✅ 一键自动解密：原生选择文件，自动上传、解密、保存，全程无需操作WebView
-- ✅ 批量解密支持：可同时选择多个加密文件，自动队列处理
-- ✅ 自动保存文件：解密后自动保存到「下载/MusicDecrypter/」公共目录，文件管理器直接可查
-- ✅ 自动扫描音乐文件：快速定位网易云音乐、QQ音乐、酷狗音乐等平台下载的加密文件
-- ✅ 完整权限管理：适配Android 7.0 至 Android 14，兼容分区存储规则
-- ✅ GitHub Action自动构建：无需本地开发环境，一键生成可安装APK
-- ✅ 纯Java代码构建：稳定高效，兼容性强
+[![Android Build](https://github.com/qhccpa/MusicDecrypter/actions/workflows/android.yml/badge.svg)](https://github.com/qhccpa/MusicDecrypter/actions)
+[![Version](https://img.shields.io/badge/Version-1.1-blue.svg)](https://github.com/qhccpa/MusicDecrypter/releases)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-## 下载安装
-1. 每次提交代码后，GitHub Action会自动执行构建流程，生成Release版本APK
-2. 前往项目的 `Actions` 页面，找到最新的构建记录，下载 `MusicDecrypter-Release` 压缩包
-3. 解压后得到APK文件，安装到安卓手机即可使用
+**MusicDecrypter** 是一款基于纯 Java 构建的安卓端音乐自动解密工具。它巧妙地集成了 `unlock-music` 的在线解密能力，实现了主流音乐平台加密格式的**一键自动化脱壳解密**。不仅如此，它还支持**歌词自动匹配下载**，为您提供更完整的音乐体验。
 
-## 使用说明
-### 基础使用步骤
-1. 安装APP后，首先进入「设置」页面，点击「检查并申请权限」，完成存储权限的申请
-   - Android 10及以上系统需要开启「管理所有文件」权限，才能读取和保存文件
-2. 进入「查找」页面，可快速查看各音乐平台下载的音乐文件，确认加密文件的位置
-3. 进入「解密」页面，点击「选择文件并自动解密」，选中需要解密的加密音频文件
-4. APP会自动完成上传、解密、保存全流程，解密完成后会提示结果
-5. 解密后的文件自动保存到手机的「下载/MusicDecrypter/」目录，可直接在文件管理器中查看
+---
 
-### 支持的加密格式
-- 网易云音乐：`.ncm` 格式
-- QQ音乐：`.qmc`、`.mgg`、`.mflac` 等格式
-- 酷狗音乐：`.kgm`、`.kgma` 格式
-- 酷我音乐：`.kwm` 格式
-- 其他主流平台加密音频格式
+## ✨ 功能特性
 
-## 项目构建
-### 本地构建
-1. 安装 Android Studio Hedgehog 及以上版本
-2. 克隆项目到本地，用Android Studio打开
-3. 连接安卓手机或启动模拟器，点击运行即可
-4. 执行 `Build -> Generate Signed Bundle/APK` 可生成签名安装包
+- 🚀 **一键全自动解密**：原生文件选择界面，自动上传、解密、提取、保存，无需在 WebView 中手动点击，真正实现「选完即得」。
+- 📝 **智能歌词匹配**：(New!) 支持从网易云音乐自动搜索并下载匹配的歌词文件（LRC/SRT），支持双语翻译、合并/交错显示。
+- 📂 **智能文件管理**：解密后自动保存至 `Music/MusicDecrypter/` 目录，并自动触发媒体扫描，播放器立即识别。
+- 🔍 **便捷文件查找**：内置专用视图，快速定位网易云音乐、QQ音乐、酷狗等平台的加密文件存储路径。
+- 🛡️ **全面适配**：完美适配 Android 7.0 至 Android 15，支持分区存储及「所有文件访问权限」。
+- 🤖 **GitHub Action 自动构建**：每次提交自动生成 APK，随时获取最新版本。
 
-### 自动构建
-项目已配置好GitHub Action自动构建流程，只需将代码push到GitHub仓库，即可自动触发构建，无需任何本地配置。
+## 📥 下载安装
 
-## 注意事项
-1. 必须授予存储权限，否则无法读取本地音乐文件和保存解密后的文件
-2. 解密功能需要联网使用，请保持网络连接正常
-3. 解密后的文件仅供个人学习使用，请勿用于商业用途、传播或侵权行为
-4. 本项目仅提供格式转换工具，不提供任何音乐资源下载服务
+1. **GitHub Releases**: 前往 [Releases](https://github.com/qhccpa/MusicDecrypter/releases) 页面下载最新的 APK。
+2. **Artifacts**: 您也可以在项目的 `Actions` 页面，从最新的成功构建记录中下载二进制文件。
 
-## 开源协议
-本项目基于 **MIT 协议** 开源，仅供个人学习使用，请勿用于商业用途。
+## 🛠️ 使用说明
+
+1. **授予权限**：首次启动请进入「设置」，授予「所有文件访问权限」，这是读写加密文件及保存结果所必须的。
+2. **配置歌词 (可选)**：在设置中开启「自动下载歌词」，并根据喜好配置翻译格式（如：合并显示、交错显示）及编码（UTF-8/UTF-16）。
+3. **开始解密**：
+   - 在「查找」页面找到目标文件。
+   - 或在「解密」页面点击按钮选择文件。
+4. **结果查看**：解密完成后，文件将出现在系统的音乐库中，或在文件管理器的 `Music/MusicDecrypter/` 目录下找到。
+
+## 🎼 支持格式
+
+- **网易云音乐**: `.ncm`
+- **QQ 音乐**: `.qmc`, `.mgg`, `.mflac`, `.tkm`
+- **酷狗音乐**: `.kgm`, `.kgma`
+- **酷我音乐**: `.kwm`
+- （待开发）**其他平台**: `.m4a`, `.ogg`, `.wma` 等各种变体加密格式
+
+## 🏗️ 开发者相关
+
+### 技术栈
+- **语言**: Java
+- **UI**: Material Components, ViewPager2, BottomNavigationView
+- **核心**: WebViewBridge + Javascript Injection
+
+### 构建
+```bash
+# 克隆项目
+git clone https://github.com/qhccpa/MusicDecrypter.git
+# 使用 Gradle 构建
+./gradlew assembleRelease
+```
+
+## ⚠️ 免责声明
+
+1. 本项目仅供学习交流 Android 开发技术及加密原理使用。
+2. 解密后的音频文件版权归原平台及唱片公司所有，请勿用于商业用途、二次传播或任何侵权行为。
+3. 用户使用本工具所产生的一切法律后果由使用者本人承担。
+
+## 📄 开源协议
+
+基于 [MIT License](LICENSE) 开源。

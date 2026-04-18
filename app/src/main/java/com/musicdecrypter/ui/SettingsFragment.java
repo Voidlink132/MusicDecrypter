@@ -35,11 +35,20 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
 
 import com.google.android.material.switchmaterial.SwitchMaterial;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.musicdecrypter.R;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+
+import okhttp3.Call;
+import okhttp3.Callback;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
 
 public class SettingsFragment extends Fragment {
 
@@ -55,6 +64,7 @@ public class SettingsFragment extends Fragment {
     private int demoProgress = 0;
     private Runnable demoRunnable;
     private View rootView;
+    private final OkHttpClient client = new OkHttpClient();
 
     private final ActivityResultLauncher<Intent> dirChooserLauncher = registerForActivityResult(
             new ActivityResultContracts.StartActivityForResult(),
@@ -87,7 +97,7 @@ public class SettingsFragment extends Fragment {
         tvStatusNetease = view.findViewById(R.id.tv_status_netease);
         tvStatusQQ = view.findViewById(R.id.tv_status_qq);
         
-        // 2. 账号登录
+        // 2. 账号登录与检测
         view.findViewById(R.id.btn_login_netease).setOnClickListener(v -> {
             Intent intent = new Intent(getActivity(), LoginActivity.class);
             intent.putExtra("platform", "netease");
@@ -95,12 +105,16 @@ public class SettingsFragment extends Fragment {
             startActivity(intent);
         });
 
+        view.findViewById(R.id.btn_detect_netease).setOnClickListener(v -> detectLoginStatus("netease"));
+
         view.findViewById(R.id.btn_login_qq).setOnClickListener(v -> {
             Intent intent = new Intent(getActivity(), LoginActivity.class);
             intent.putExtra("platform", "qq");
-            intent.putExtra("url", "https://y.qq.com");
+            intent.putExtra("url", "https://i.y.qq.com/n2/m/login/login.html"); // 使用专门的移动端登录页
             startActivity(intent);
         });
+
+        view.findViewById(R.id.btn_detect_qq).setOnClickListener(v -> detectLoginStatus("qq"));
 
         // 3. 外观设置
         TextView tvThemeColor = view.findViewById(R.id.tv_theme_color);
@@ -279,6 +293,67 @@ public class SettingsFragment extends Fragment {
         updateLoginStatus();
     }
 
+    private void detectLoginStatus(String platform) {
+        String cookie = sp.getString("cookie_" + platform, "");
+        if (cookie.isEmpty()) {
+            Toast.makeText(getContext(), "尚未获取到 Cookie，请先登录", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        Toast.makeText(getContext(), "正在检测 " + platform + " 登录状态...", Toast.LENGTH_SHORT).show();
+
+        if ("netease".equals(platform)) {
+            Request request = new Request.Builder()
+                    .url("https://music.163.com/api/v1/user/info")
+                    .addHeader("Cookie", cookie)
+                    .build();
+            client.newCall(request).enqueue(new Callback() {
+                @Override public void onFailure(Call call, IOException e) { showDetectResult(false, "网络请求失败"); }
+                @Override public void onResponse(Call call, Response response) throws IOException {
+                    try {
+                        String body = response.body().string();
+                        JsonObject json = JsonParser.parseString(body).getAsJsonObject();
+                        if (json.has("code") && json.get("code").getAsInt() == 200) {
+                            showDetectResult(true, "网易云已成功登录");
+                        } else {
+                            showDetectResult(false, "Cookie 已失效，请重新登录");
+                        }
+                    } catch (Exception e) { showDetectResult(false, "解析失败"); }
+                }
+            });
+        } else if ("qq".equals(platform)) {
+            Request request = new Request.Builder()
+                    .url("https://u.y.qq.com/cgi-bin/musicu.fcg?data=%7B%22req_0%22%3A%7B%22module%22%3A%22vkey.GetVkeyServer%22%2C%22method%22%3A%22CgiGetVkey%22%2C%22param%22%3A%7B%22guid%22%3A%2212345678%22%2C%22songmid%22%3A%5B%22003aXpNo4elS13%22%5D%2C%22songtype%22%3A%5B0%5D%2C%22uin%22%3A%220%22%2C%22loginflag%22%3A1%2C%22platform%22%3A%2220%22%7D%7D%7D")
+                    .addHeader("Cookie", cookie)
+                    .build();
+            client.newCall(request).enqueue(new Callback() {
+                @Override public void onFailure(Call call, IOException e) { showDetectResult(false, "网络请求失败"); }
+                @Override public void onResponse(Call call, Response response) throws IOException {
+                    try {
+                        String body = response.body().string();
+                        if (body.contains("uin")) {
+                            showDetectResult(true, "QQ 音乐已成功登录");
+                        } else {
+                            showDetectResult(false, "Cookie 无效或已过期");
+                        }
+                    } catch (Exception e) { showDetectResult(false, "解析失败"); }
+                }
+            });
+        }
+    }
+
+    private void showDetectResult(boolean success, String msg) {
+        if (getActivity() == null) return;
+        getActivity().runOnUiThread(() -> {
+            new AlertDialog.Builder(requireContext())
+                    .setTitle(success ? "检测成功" : "检测失败")
+                    .setMessage(msg)
+                    .setPositiveButton("确定", null)
+                    .show();
+            updateLoginStatus();
+        });
+    }
+
     private void applyAppearance() {
         if (rootView == null) return;
         
@@ -305,7 +380,7 @@ public class SettingsFragment extends Fragment {
             default: themeColor = Color.parseColor("#FF4081"); break;
         }
 
-        // 1. 修改进度文字和图标演示颜色
+        // 1. 修改进度文字演示颜色
         TextView tvDemoProgress = rootView.findViewById(R.id.tv_demo_progress);
         if (tvDemoProgress != null) tvDemoProgress.setTextColor(themeColor);
 
@@ -321,7 +396,13 @@ public class SettingsFragment extends Fragment {
             tv.setTextColor(themeColor);
         }
 
-        // 4. 批量修改 Switch 的颜色
+        // 4. 修改检测按钮颜色
+        TextView d1 = rootView.findViewById(R.id.btn_detect_netease);
+        TextView d2 = rootView.findViewById(R.id.btn_detect_qq);
+        if (d1 != null) d1.setTextColor(themeColor);
+        if (d2 != null) d2.setTextColor(themeColor);
+
+        // 5. 批量修改 Switch 的颜色
         int[][] states = new int[][] {
             new int[] {-android.R.attr.state_checked},
             new int[] {android.R.attr.state_checked}
@@ -336,20 +417,16 @@ public class SettingsFragment extends Fragment {
         if (s2 != null) s2.setThumbTintList(switchColors);
         if (s3 != null) s3.setThumbTintList(switchColors);
         
-        // 5. 修改一些图标的 Tint
-        ImageView ivDemoStatus = rootView.findViewById(R.id.tv_demo_status).getRootView().findViewById(R.id.pb_demo).getRootView().findViewWithTag("status_icon");
-        // 由于布局中没有 tag，我们根据 ID 或位置找
-        // 这里的逻辑可以针对 fragment_settings.xml 中的 ImageView 进行具体设置
-        ImageView ivThemeIcon = rootView.findViewById(R.id.btn_theme_color).findViewById(android.R.id.icon1); // 这种写法不行，布局中是直接写的
-        
-        // 我们通过 findViewById 找到具体的 ImageView 并设置 Tint
-        View vTheme = rootView.findViewById(R.id.btn_theme_color);
-        if (vTheme instanceof ViewGroup) {
-             View icon = ((ViewGroup) vTheme).getChildAt(0);
-             if (icon instanceof ImageView) ((ImageView) icon).setColorFilter(themeColor, PorterDuff.Mode.SRC_IN);
+        // 6. 修改图标 Tint
+        int[] layoutIds = {R.id.btn_theme_color, R.id.btn_background_style, R.id.btn_login_netease, R.id.btn_login_qq};
+        for (int id : layoutIds) {
+            View v = rootView.findViewById(id);
+            if (v instanceof ViewGroup) {
+                View icon = ((ViewGroup) v).getChildAt(0);
+                if (icon instanceof ImageView) ((ImageView) icon).setColorFilter(themeColor, PorterDuff.Mode.SRC_IN);
+            }
         }
         
-        // 修改各个模块的辅助文字颜色
         TextView tvBilingualType = rootView.findViewById(R.id.tv_bilingual_type);
         if (tvBilingualType != null) tvBilingualType.setTextColor(themeColor);
     }
@@ -426,11 +503,12 @@ public class SettingsFragment extends Fragment {
 
     private void updateLoginStatus() {
         if (tvStatusNetease == null || tvStatusQQ == null) return;
-        boolean hasNetease = !sp.getString("cookie_netease", "").isEmpty();
-        tvStatusNetease.setText(hasNetease ? "已登录 (已解锁 VIP 搜索下载)" : "未登录 (无法下载 VIP 歌曲)");
-        tvStatusNetease.setTextColor(hasNetease ? 0xFF4CAF50 : 0xFF999999);
-        boolean hasQQ = !sp.getString("cookie_qq", "").isEmpty();
-        tvStatusQQ.setText(hasQQ ? "已登录 (已解锁 VIP 搜索下载)" : "未登录 (无法下载 VIP 歌曲)");
-        tvStatusQQ.setTextColor(hasQQ ? 0xFF4CAF50 : 0xFF999999);
+        String cookieN = sp.getString("cookie_netease", "");
+        tvStatusNetease.setText(cookieN.isEmpty() ? "未登录" : "Cookie 已获取 (建议点击检测)");
+        tvStatusNetease.setTextColor(cookieN.isEmpty() ? 0xFF999999 : 0xFF4CAF50);
+        
+        String cookieQ = sp.getString("cookie_qq", "");
+        tvStatusQQ.setText(cookieQ.isEmpty() ? "未登录" : "Cookie 已获取 (建议点击检测)");
+        tvStatusQQ.setTextColor(cookieQ.isEmpty() ? 0xFF999999 : 0xFF4CAF50);
     }
 }

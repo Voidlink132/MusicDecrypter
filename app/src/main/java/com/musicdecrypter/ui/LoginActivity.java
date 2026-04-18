@@ -31,9 +31,10 @@ public class LoginActivity extends AppCompatActivity {
                 super.onPageFinished(view, url);
                 String cookie = CookieManager.getInstance().getCookie(url);
                 if (cookie != null) {
-                    if (("netease".equals(platform) && cookie.contains("MUSIC_U")) ||
-                        ("qq".equals(platform) && (cookie.contains("pskey") || cookie.contains("p_skey")))) {
-                        
+                    boolean isNeteaseSuccess = "netease".equals(platform) && cookie.contains("MUSIC_U");
+                    boolean isQQSuccess = "qq".equals(platform) && (cookie.contains("pskey") || cookie.contains("p_skey") || (cookie.contains("uin=") && cookie.contains("skey=")));
+
+                    if (isNeteaseSuccess || isQQSuccess) {
                         getSharedPreferences("config", Context.MODE_PRIVATE)
                                 .edit()
                                 .putString("cookie_" + platform, cookie)

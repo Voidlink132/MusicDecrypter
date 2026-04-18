@@ -86,7 +86,6 @@ public class SearchFragment extends Fragment {
 
     public void updateProgress(boolean visible, String step, int percent) {
         if (cardProgress == null) return;
-        // 恢复始终显示卡片样式，不再切换 GONE
         cardProgress.setVisibility(View.VISIBLE);
         
         if (step != null && !step.isEmpty()) {
@@ -96,11 +95,6 @@ public class SearchFragment extends Fragment {
         progressBar.setProgress(percent);
         if (tvProgressPercent != null) {
             tvProgressPercent.setText(percent + "%");
-        }
-        
-        // 如果任务完成，可以考虑在这里做一些 UI 反馈，但保持卡片存在
-        if (percent == 100 && !visible) {
-            // 任务结束逻辑，可以在此重置文字或保持 100% 状态
         }
     }
 
@@ -115,8 +109,15 @@ public class SearchFragment extends Fragment {
         
         new Thread(() -> {
             Map<String, List<MusicFile>> groupedFiles = new HashMap<>();
+            
+            // 1. 扫描常用公开目录
             scan(Environment.getExternalStorageDirectory(), groupedFiles);
+            
+            // 2. 扫描 Android/data 目录 (需要所有文件访问权限)
             scanAndroidData(groupedFiles);
+            
+            // 3. 扫描一些特定的路径
+            scanSpecificPaths(groupedFiles);
 
             List<Object> newList = new ArrayList<>();
             String[] prioritySources = {"网易云音乐", "QQ音乐", "酷狗音乐", "酷我音乐", "浏览器下载", "其他来源"};
@@ -152,7 +153,8 @@ public class SearchFragment extends Fragment {
             if (file.isDirectory()) {
                 String dirName = file.getName();
                 if (dirName.startsWith(".") || dirName.equalsIgnoreCase("Android") || 
-                    dirName.equalsIgnoreCase("Pictures") || dirName.equalsIgnoreCase("DCIM")) continue;
+                    dirName.equalsIgnoreCase("Pictures") || dirName.equalsIgnoreCase("DCIM") ||
+                    dirName.equalsIgnoreCase("Movies")) continue;
                 scan(file, groupedFiles);
             } else {
                 checkAndAddFile(file, groupedFiles);
@@ -163,10 +165,39 @@ public class SearchFragment extends Fragment {
     private void scanAndroidData(Map<String, List<MusicFile>> groupedFiles) {
         File dataDir = new File(Environment.getExternalStorageDirectory(), "Android/data");
         if (!dataDir.exists() || !dataDir.isDirectory()) return;
-        String[] targetPkgs = {"com.netease.cloudmusic", "com.tencent.qqmusic", "com.kugou.android", "cn.kuwo.player"};
+        String[] targetPkgs = {
+            "com.netease.cloudmusic", 
+            "com.tencent.qqmusic", 
+            "com.kugou.android", 
+            "cn.kuwo.player",
+            "com.kugou.android.lite",
+            "com.tencent.blackbird",
+            "com.kugou.android.concept"
+        };
         for (String pkg : targetPkgs) {
             File pkgDir = new File(dataDir, pkg);
             if (pkgDir.exists()) scanDeep(pkgDir, groupedFiles);
+        }
+    }
+
+    private void scanSpecificPaths(Map<String, List<MusicFile>> groupedFiles) {
+        String[] paths = {
+            "kgmusic/download",
+            "kugou/down_music",
+            "kugou/kgmusic/download",
+            "qqmusic/song",
+            "netease/cloudmusic/Music",
+            "kuwo/music",
+            "tencent/qqmusic/song",
+            "Tencent/QQMusic/song",
+            "tencent/MobileQQ/QQfile_recv"
+        };
+        File root = Environment.getExternalStorageDirectory();
+        for (String path : paths) {
+            File dir = new File(root, path);
+            if (dir.exists() && dir.isDirectory()) {
+                scanDeep(dir, groupedFiles);
+            }
         }
     }
 
@@ -185,6 +216,8 @@ public class SearchFragment extends Fragment {
             if (name.endsWith(ext)) {
                 String source = getSource(file.getAbsolutePath());
                 if (!groupedFiles.containsKey(source)) groupedFiles.put(source, new ArrayList<>());
+                
+                // 检查是否已存在
                 boolean exists = false;
                 for (MusicFile mf : groupedFiles.get(source)) {
                     if (mf.getFilePath().equals(file.getAbsolutePath())) { exists = true; break; }
@@ -198,7 +231,7 @@ public class SearchFragment extends Fragment {
     private String getSource(String path) {
         String p = path.toLowerCase();
         if (p.contains("cloudmusic") || p.contains("netease")) return "网易云音乐";
-        if (p.contains("qqmusic") || p.contains("tencent") || p.contains("mqms")) return "QQ音乐";
+        if (p.contains("qqmusic") || p.contains("tencent") || p.contains("mqms") || p.contains("blackbird")) return "QQ音乐";
         if (p.contains("kgmusic") || p.contains("kugou")) return "酷狗音乐";
         if (p.contains("kuwo")) return "酷我音乐";
         if (p.contains("download")) return "浏览器下载";
@@ -276,7 +309,7 @@ public class SearchFragment extends Fragment {
         private String getSourceFromPath(String path) {
             String p = path.toLowerCase();
             if (p.contains("cloudmusic") || p.contains("netease")) return "网易云音乐";
-            if (p.contains("qqmusic") || p.contains("tencent") || p.contains("mqms")) return "QQ音乐";
+            if (p.contains("qqmusic") || p.contains("tencent") || p.contains("mqms") || p.contains("blackbird")) return "QQ音乐";
             if (p.contains("kgmusic") || p.contains("kugou")) return "酷狗音乐";
             if (p.contains("kuwo")) return "酷我音乐";
             if (p.contains("download")) return "浏览器下载";

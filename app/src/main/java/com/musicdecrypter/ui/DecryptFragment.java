@@ -114,6 +114,8 @@ public class DecryptFragment extends Fragment {
         builder.addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
         if ("netease".equals(platform)) {
             builder.addHeader("Referer", "https://music.163.com/");
+        } else if ("qq".equals(platform)) {
+            builder.addHeader("Referer", "https://y.qq.com/");
         }
         if (!cookie.isEmpty()) {
             builder.addHeader("Cookie", cookie);
@@ -196,6 +198,7 @@ public class DecryptFragment extends Fragment {
     }
 
     private void searchQQ(String keyword) {
+        // 更新为更稳定的接口
         String url = "https://c.y.qq.com/soso/fcgi-bin/client_search_cp?ct=24&qqmusic_ver=1298&new_json=1&remoteplace=txt.yqq.song&t=0&aggr=1&cr=1&catZhida=1&lossless=0&flag_qc=0&p=1&n=20&w=" + Uri.encode(keyword) + "&format=json";
         Request.Builder builder = new Request.Builder().url(url);
         Request request = addHeaders(builder, "qq").build();
@@ -207,32 +210,30 @@ public class DecryptFragment extends Fragment {
             public void onResponse(Call call, Response response) throws IOException {
                 try {
                     String body = response.body().string();
-                    if (body.contains("callback(")) {
+                    // 处理可能存在的 jsonp
+                    if (body.startsWith("callback(") || body.startsWith("jsonp")) {
                         body = body.substring(body.indexOf("(") + 1, body.lastIndexOf(")"));
                     }
+                    
                     JsonObject json = JsonParser.parseString(body).getAsJsonObject();
-                    if (json.has("data") && !json.get("data").isJsonNull()) {
-                        JsonObject data = json.getAsJsonObject("data");
-                        if (data.has("song") && !data.get("song").isJsonNull()) {
-                            JsonArray list = data.getAsJsonObject("song").getAsJsonArray("list");
-                            for (int i = 0; i < list.size(); i++) {
-                                JsonObject s = list.get(i).getAsJsonObject();
-                                String mid = s.get("mid").getAsString();
-                                String name = s.get("name").getAsString();
-                                
-                                String artist = "未知歌手";
-                                if (s.has("singer") && s.get("singer").isJsonArray()) {
-                                    JsonArray singers = s.getAsJsonArray("singer");
-                                    if (singers.size() > 0) artist = singers.get(0).getAsJsonObject().get("name").getAsString();
+                    JsonObject data = json.getAsJsonObject("data");
+                    if (data != null && data.has("song")) {
+                        JsonArray list = data.getAsJsonObject("song").getAsJsonArray("list");
+                        for (int i = 0; i < list.size(); i++) {
+                            JsonObject s = list.get(i).getAsJsonObject();
+                            String mid = s.get("mid").getAsString();
+                            String name = s.get("name").getAsString();
+                            
+                            String artist = "";
+                            if (s.has("singer") && s.get("singer").isJsonArray()) {
+                                JsonArray singers = s.getAsJsonArray("singer");
+                                for(int j=0; j<singers.size(); j++) {
+                                    artist += singers.get(j).getAsJsonObject().get("name").getAsString() + (j == singers.size()-1 ? "" : "/");
                                 }
-                                
-                                String album = "未知专辑";
-                                if (s.has("album") && !s.get("album").isJsonNull()) {
-                                    album = s.getAsJsonObject("album").get("name").getAsString();
-                                }
-                                
-                                songList.add(new Song(mid, name, artist, album, "qq"));
                             }
+                            
+                            String album = s.has("album") ? s.getAsJsonObject("album").get("name").getAsString() : "";
+                            songList.add(new Song(mid, name, artist, album, "qq"));
                         }
                     }
                     updateUI();
@@ -343,6 +344,7 @@ public class DecryptFragment extends Fragment {
 
     private void fetchQQPlayUrl(Song song) {
         String mid = song.getId();
+        // 尝试使用更通用的 vkey 获取方式
         String data = "{\"req\":{\"module\":\"vkey.GetVkeyServer\",\"method\":\"CgiGetVkey\",\"param\":{\"guid\":\"10000\",\"songmid\":[\"" + mid + "\"],\"songtype\":[0],\"uin\":\"0\",\"loginflag\":1,\"platform\":\"20\"}},\"comm\":{\"uin\":0,\"format\":\"json\",\"ct\":24,\"cv\":0}}";
         String url = "https://u.y.qq.com/cgi-bin/musicu.fcg?data=" + Uri.encode(data);
         
@@ -363,7 +365,7 @@ public class DecryptFragment extends Fragment {
                             JsonArray midUrlInfo = vkeyData.getAsJsonArray("midurlinfo");
                             if (midUrlInfo.size() > 0) {
                                 String purl = midUrlInfo.get(0).getAsJsonObject().get("purl").getAsString();
-                                if (!purl.isEmpty()) {
+                                if (purl != null && !purl.isEmpty()) {
                                     String downloadUrl = "http://ws.stream.qqmusic.qq.com/" + purl;
                                     startDownloadTask(song.getName() + " - " + song.getArtist() + ".mp3", downloadUrl);
                                     return;

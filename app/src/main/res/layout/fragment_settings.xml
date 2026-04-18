@@ -14,14 +14,14 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="关于"
+            android:text="设置"
             android:textSize="24sp"
             android:textColor="#333333"
             android:textStyle="bold"
             android:layout_marginBottom="16dp"
             android:layout_marginStart="8dp"/>
 
-        <!-- 顶部主卡片 -->
+        <!-- 1. 顶部主卡片 -->
         <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -29,21 +29,18 @@
             app:cardElevation="0dp"
             app:cardBackgroundColor="#E8EAF6"
             android:layout_marginBottom="24dp">
-
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:padding="32dp"
                 android:gravity="center">
-
                 <ImageView
                     android:layout_width="80dp"
                     android:layout_height="80dp"
                     android:src="@android:mipmap/sym_def_app_icon"
                     android:padding="12dp"
                     android:layout_marginBottom="12dp"/>
-
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -52,67 +49,60 @@
                     android:textColor="#333333"
                     android:textStyle="bold"
                     android:layout_marginBottom="4dp"/>
-
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="实现解密自由！"
+                    android:text="让音乐回归自由。"
                     android:textSize="14sp"
                     android:textColor="#666666"/>
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 
-        <!-- 演示效果卡片 -->
+        <!-- 2. 界面演示 -->
         <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="演示效果"
-            android:textSize="14sp"
-            android:textColor="#666666"
-            android:layout_marginBottom="8dp"
-            android:layout_marginStart="8dp"/>
-
-        <androidx.cardview.widget.CardView
-            android:id="@+id/cardDemo"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="8dp"
+            android:text="界面演示"
+            android:textSize="13sp"
+            android:textColor="#FF4081"
+            android:textStyle="bold"
+            android:paddingStart="8dp"
+            android:layout_marginBottom="8dp"/>
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="24dp"
             app:cardCornerRadius="20dp"
-            app:cardElevation="4dp">
-
+            app:cardElevation="2dp">
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:padding="20dp"
                 android:background="@android:color/white">
-
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
                     android:gravity="center_vertical"
                     android:layout_marginBottom="12dp">
-
                     <ImageView
                         android:layout_width="22dp"
                         android:layout_height="22dp"
                         android:src="@android:drawable/stat_notify_sync"
                         android:layout_marginEnd="8dp"
                         app:tint="#2196F3" />
-
                     <TextView
-                        android:id="@+id/tvDemoStep"
+                        android:id="@+id/tv_demo_status"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="正在准备..."
+                        android:text="正在准备中..."
                         android:textColor="#333333"
                         android:textSize="15sp"
                         android:textStyle="bold" />
-
                     <TextView
-                        android:id="@+id/tvDemoPercent"
+                        android:id="@+id/tv_demo_progress"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="0%"
@@ -120,650 +110,298 @@
                         android:textSize="16sp"
                         android:textStyle="bold" />
                 </LinearLayout>
-
                 <ProgressBar
-                    android:id="@+id/pbDemo"
+                    android:id="@+id/pb_demo"
                     style="?android:attr/progressBarStyleHorizontal"
                     android:layout_width="match_parent"
                     android:layout_height="10dp"
                     android:max="100"
                     android:progress="0"
                     android:progressDrawable="@drawable/custom_progress_bar" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:layout_gravity="end"
-                    android:text="请勿关闭应用"
-                    android:textColor="#999999"
-                    android:textSize="11sp" />
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 
+        <!-- 3. 外观设置 -->
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="注：此卡片仅用于演示进度条 UI 效果，不代表实际任务进度。"
-            android:textSize="12sp"
-            android:textColor="#999999"
-            android:layout_marginBottom="24dp"
-            android:layout_marginStart="8dp"/>
-
-        <!-- 存储与下载设置 -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="存储与下载设置"
-            android:textSize="14sp"
-            android:textColor="#666666"
-            android:layout_marginBottom="8dp"
-            android:layout_marginStart="8dp"/>
-
+            android:text="外观设置"
+            android:textSize="13sp"
+            android:textColor="#FF4081"
+            android:textStyle="bold"
+            android:paddingStart="8dp"
+            android:layout_marginBottom="8dp"/>
         <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             app:cardCornerRadius="16dp"
             app:cardElevation="0dp"
             app:cardBackgroundColor="@android:color/white"
-            android:layout_marginBottom="16dp">
+            android:layout_marginBottom="24dp">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+                <LinearLayout
+                    android:id="@+id/btn_theme_color"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:padding="16dp"
+                    android:background="?attr/selectableItemBackground"
+                    android:gravity="center_vertical">
+                    <ImageView android:layout_width="24dp" android:layout_height="24dp" android:src="@android:drawable/ic_menu_manage" app:tint="#FF4081" android:layout_marginEnd="16dp"/>
+                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="主题颜色" android:textSize="16sp" android:textColor="#333333"/>
+                        <TextView android:id="@+id/tv_theme_color" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="默认粉色" android:textSize="12sp" android:textColor="#999999"/>
+                    </LinearLayout>
+                </LinearLayout>
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#F0F0F0" android:layout_marginStart="56dp"/>
+                <LinearLayout
+                    android:id="@+id/btn_background_style"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:padding="16dp"
+                    android:background="?attr/selectableItemBackground"
+                    android:gravity="center_vertical">
+                    <ImageView android:layout_width="24dp" android:layout_height="24dp" android:src="@android:drawable/ic_menu_gallery" app:tint="#2196F3" android:layout_marginEnd="16dp"/>
+                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="背景样式" android:textSize="16sp" android:textColor="#333333"/>
+                        <TextView android:id="@+id/tv_background_style" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="默认浅灰" android:textSize="12sp" android:textColor="#999999"/>
+                    </LinearLayout>
+                </LinearLayout>
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
 
+        <!-- 4. 账号与 VIP -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="账号与 VIP 权限"
+            android:textSize="13sp"
+            android:textColor="#FF4081"
+            android:textStyle="bold"
+            android:paddingStart="8dp"
+            android:layout_marginBottom="8dp"/>
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="0dp"
+            app:cardBackgroundColor="@android:color/white"
+            android:layout_marginBottom="24dp">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+                <LinearLayout
+                    android:id="@+id/btn_login_netease"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:padding="16dp"
+                    android:background="?attr/selectableItemBackground"
+                    android:gravity="center_vertical">
+                    <ImageView android:layout_width="24dp" android:layout_height="24dp" android:src="@android:drawable/ic_menu_myplaces" app:tint="#FF4081" android:layout_marginEnd="16dp"/>
+                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="登录网易云音乐" android:textSize="16sp" android:textColor="#333333"/>
+                        <TextView android:id="@+id/tv_status_netease" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="未登录" android:textSize="12sp" android:textColor="#999999"/>
+                    </LinearLayout>
+                </LinearLayout>
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#F0F0F0" android:layout_marginStart="56dp"/>
+                <LinearLayout
+                    android:id="@+id/btn_login_qq"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:padding="16dp"
+                    android:background="?attr/selectableItemBackground"
+                    android:gravity="center_vertical">
+                    <ImageView android:layout_width="24dp" android:layout_height="24dp" android:src="@android:drawable/ic_menu_myplaces" app:tint="#4CAF50" android:layout_marginEnd="16dp"/>
+                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="登录 QQ 音乐" android:textSize="16sp" android:textColor="#333333"/>
+                        <TextView android:id="@+id/tv_status_qq" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="未登录" android:textSize="12sp" android:textColor="#999999"/>
+                    </LinearLayout>
+                </LinearLayout>
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- 5. 歌词设置 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="歌词设置"
+            android:textSize="13sp"
+            android:textColor="#FF4081"
+            android:textStyle="bold"
+            android:paddingStart="8dp"
+            android:layout_marginBottom="8dp"/>
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="0dp"
+            app:cardBackgroundColor="@android:color/white"
+            android:layout_marginBottom="24dp">
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical">
 
+                <!-- 主开关行 -->
                 <LinearLayout
-                    android:id="@+id/layout_save_path"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
                     android:padding="16dp"
-                    android:background="?attr/selectableItemBackground"
                     android:gravity="center_vertical">
-                    <ImageView
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        android:src="@android:drawable/ic_menu_save"
-                        app:tint="#333333"
-                        android:layout_marginEnd="16dp"/>
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="当前保存路径"
-                            android:textSize="16sp"
-                            android:textColor="#333333"/>
-                        <TextView
-                            android:id="@+id/tv_save_path"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="/Music/MusicDecrypter"
-                            android:textSize="13sp"
-                            android:textColor="#999999"/>
+                    <ImageView android:layout_width="24dp" android:layout_height="24dp" android:src="@android:drawable/ic_menu_edit" app:tint="#333333" android:layout_marginEnd="16dp"/>
+                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="自动匹配歌词" android:textSize="16sp" android:textColor="#333333"/>
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="解密成功后自动下载对应歌词" android:textSize="12sp" android:textColor="#999999"/>
                     </LinearLayout>
+                    <com.google.android.material.switchmaterial.SwitchMaterial android:id="@+id/switch_fetch_lyric" android:layout_width="wrap_content" android:layout_height="wrap_content" />
                 </LinearLayout>
 
-                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#F0F0F0" android:layout_marginStart="56dp"/>
-
-                <LinearLayout
-                    android:id="@+id/btn_modify_path"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:padding="16dp"
-                    android:background="?attr/selectableItemBackground"
-                    android:gravity="center_vertical">
-                    <ImageView
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        android:src="@android:drawable/ic_menu_edit"
-                        app:tint="#333333"
-                        android:layout_marginEnd="16dp"/>
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="修改保存路径"
-                        android:textSize="16sp"
-                        android:textColor="#333333"/>
-                </LinearLayout>
-
-                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#F0F0F0" android:layout_marginStart="56dp"/>
-
-                <LinearLayout
-                    android:id="@+id/btn_reset_path"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:padding="16dp"
-                    android:background="?attr/selectableItemBackground"
-                    android:gravity="center_vertical">
-                    <ImageView
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        android:src="@android:drawable/ic_menu_revert"
-                        app:tint="#333333"
-                        android:layout_marginEnd="16dp"/>
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="恢复默认路径"
-                        android:textSize="16sp"
-                        android:textColor="#333333"/>
-                </LinearLayout>
-
-                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#F0F0F0" android:layout_marginStart="56dp"/>
-
-                <!-- 同时获取歌词选项 -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:padding="16dp"
-                    android:gravity="center_vertical">
-                    <ImageView
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        android:src="@android:drawable/ic_menu_edit"
-                        app:tint="#333333"
-                        android:layout_marginEnd="16dp"/>
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="同时获取歌词"
-                            android:textSize="16sp"
-                            android:textColor="#333333"/>
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="解密成功后自动从网络匹配下载歌词"
-                            android:textSize="12sp"
-                            android:textColor="#999999"/>
-                    </LinearLayout>
-                    <com.google.android.material.switchmaterial.SwitchMaterial
-                        android:id="@+id/switch_fetch_lyric"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content" />
-                </LinearLayout>
-
-                <!-- 歌词二级设置容器 -->
+                <!-- 展开的二级设置 -->
                 <LinearLayout
                     android:id="@+id/layout_lyric_settings"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:background="#FAFAFA"
-                    android:visibility="gone">
+                    android:visibility="gone"
+                    android:background="#F9F9F9"
+                    android:paddingBottom="8dp">
 
-                    <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#F0F0F0" android:layout_marginStart="56dp"/>
+                    <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#EEEEEE" />
 
-                    <!-- 输出编码 -->
-                    <LinearLayout
-                        android:id="@+id/btn_lyric_encoding"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:padding="12dp"
-                        android:paddingStart="56dp"
-                        android:background="?attr/selectableItemBackground"
-                        android:gravity="center_vertical">
-                        <LinearLayout
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:orientation="vertical">
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="歌词输出编码"
-                                android:textSize="15sp"
-                                android:textColor="#333333"/>
-                            <TextView
-                                android:id="@+id/tv_lyric_encoding"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="UTF-8"
-                                android:textSize="12sp"
-                                android:textColor="#666666"/>
-                        </LinearLayout>
-                    </LinearLayout>
-
-                    <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#F0F0F0" android:layout_marginStart="56dp"/>
-
-                    <!-- 输出格式 -->
-                    <LinearLayout
-                        android:id="@+id/btn_lyric_format"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:padding="12dp"
-                        android:paddingStart="56dp"
-                        android:background="?attr/selectableItemBackground"
-                        android:gravity="center_vertical">
-                        <LinearLayout
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:orientation="vertical">
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="歌词输出格式"
-                                android:textSize="15sp"
-                                android:textColor="#333333"/>
-                            <TextView
-                                android:id="@+id/tv_lyric_format"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="LRC"
-                                android:textSize="12sp"
-                                android:textColor="#666666"/>
-                        </LinearLayout>
-                    </LinearLayout>
-
-                    <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#F0F0F0" android:layout_marginStart="56dp"/>
-
-                    <!-- 歌词双语开关 -->
+                    <!-- 编码与格式组 -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
-                        android:padding="12dp"
-                        android:paddingStart="56dp"
-                        android:gravity="center_vertical">
-                        <LinearLayout
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:orientation="vertical">
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="歌词双语"
-                                android:textSize="15sp"
-                                android:textColor="#333333"/>
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="优先下载包含翻译的歌词"
-                                android:textSize="12sp"
-                                android:textColor="#666666"/>
-                        </LinearLayout>
-                        <com.google.android.material.switchmaterial.SwitchMaterial
-                            android:id="@+id/switch_bilingual_lyric"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content" />
-                    </LinearLayout>
+                        android:paddingTop="12dp"
+                        android:paddingBottom="12dp">
 
-                    <!-- 双语具体设置 -->
-                    <LinearLayout
-                        android:id="@+id/layout_bilingual_options"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:visibility="gone">
-
-                        <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#F0F0F0" android:layout_marginStart="56dp"/>
-
-                        <LinearLayout
-                            android:id="@+id/btn_bilingual_type"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:orientation="horizontal"
-                            android:padding="12dp"
-                            android:paddingStart="56dp"
-                            android:background="?attr/selectableItemBackground"
-                            android:gravity="center_vertical">
-                            <LinearLayout
-                                android:layout_width="0dp"
-                                android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:orientation="vertical">
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="双语展示方式"
-                                    android:textSize="15sp"
-                                    android:textColor="#333333"/>
-                                <TextView
-                                    android:id="@+id/tv_bilingual_type"
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="合并"
-                                    android:textSize="12sp"
-                                    android:textColor="#666666"/>
-                            </LinearLayout>
+                        <LinearLayout android:id="@+id/btn_lyric_encoding" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:gravity="center" android:background="?attr/selectableItemBackground" android:padding="8dp">
+                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="输出编码" android:textSize="12sp" android:textColor="#999999"/>
+                            <TextView android:id="@+id/tv_lyric_encoding" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="UTF-8" android:textSize="15sp" android:textColor="#333333" android:textStyle="bold" android:layout_marginTop="2dp"/>
                         </LinearLayout>
 
-                        <!-- 合并符设置 -->
-                        <LinearLayout
-                            android:id="@+id/layout_combine_symbol"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:orientation="vertical"
-                            android:paddingStart="56dp"
-                            android:paddingEnd="16dp"
-                            android:paddingBottom="12dp"
-                            android:visibility="gone">
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="合并符"
-                                android:textSize="12sp"
-                                android:textColor="#666666"
-                                android:layout_marginBottom="4dp"/>
-                            <EditText
-                                android:id="@+id/et_combine_symbol"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:hint="例如: / 或 |"
-                                android:textSize="14sp"
-                                android:background="@android:color/transparent"
-                                android:padding="4dp"/>
-                            <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#2196F3"/>
+                        <View android:layout_width="1dp" android:layout_height="24dp" android:background="#DDDDDD" android:layout_gravity="center_vertical"/>
+
+                        <LinearLayout android:id="@+id/btn_lyric_format" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:gravity="center" android:background="?attr/selectableItemBackground" android:padding="8dp">
+                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="文件格式" android:textSize="12sp" android:textColor="#999999"/>
+                            <TextView android:id="@+id/tv_lyric_format" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="LRC" android:textSize="15sp" android:textColor="#333333" android:textStyle="bold" android:layout_marginTop="2dp"/>
                         </LinearLayout>
                     </LinearLayout>
 
+                    <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#EEEEEE" android:layout_marginStart="16dp" android:layout_marginEnd="16dp"/>
+
+                    <!-- 双语开关 -->
+                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:padding="16dp" android:gravity="center_vertical">
+                        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="启用双语歌词" android:textSize="15sp" android:textColor="#333333"/>
+                        <com.google.android.material.switchmaterial.SwitchMaterial android:id="@+id/switch_bilingual_lyric" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                    </LinearLayout>
+
+                    <!-- 双语进阶选项 -->
+                    <LinearLayout android:id="@+id/layout_bilingual_options" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone" android:layout_marginStart="16dp" android:layout_marginEnd="16dp" android:layout_marginBottom="8dp" android:background="@drawable/bg_settings_sub_card" android:padding="4dp">
+                        <LinearLayout android:id="@+id/btn_bilingual_type" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:padding="12dp" android:background="?attr/selectableItemBackground" android:gravity="center_vertical">
+                            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="展示方式" android:textSize="14sp" android:textColor="#666666"/>
+                            <TextView android:id="@+id/tv_bilingual_type" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="合并" android:textSize="14sp" android:textColor="#FF4081" android:textStyle="bold"/>
+                        </LinearLayout>
+                        <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#EEEEEE" android:layout_marginStart="12dp" android:layout_marginEnd="12dp"/>
+                        <LinearLayout android:id="@+id/layout_combine_symbol" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:padding="12dp" android:gravity="center_vertical">
+                            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="合并分隔符" android:textSize="14sp" android:textColor="#666666"/>
+                            <EditText android:id="@+id/et_combine_symbol" android:layout_width="60dp" android:layout_height="wrap_content" android:text="/" android:gravity="center" android:textSize="14sp" android:background="#F0F0F0" android:textColor="#333333" android:padding="4dp" android:minHeight="32dp"/>
+                        </LinearLayout>
+                    </LinearLayout>
                 </LinearLayout>
-
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 
-        <!-- 扫描设置 -->
+        <!-- 6. 开源与开发者 -->
         <TextView
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="扫描设置"
-            android:textSize="14sp"
-            android:textColor="#666666"
-            android:layout_marginBottom="8dp"
-            android:layout_marginStart="8dp"/>
-
+            android:text="开发者"
+            android:textSize="13sp"
+            android:textColor="#FF4081"
+            android:textStyle="bold"
+            android:paddingStart="8dp"
+            android:layout_marginBottom="8dp"/>
         <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             app:cardCornerRadius="16dp"
             app:cardElevation="0dp"
             app:cardBackgroundColor="@android:color/white"
-            android:layout_marginBottom="16dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
-                    <ImageView
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        android:src="@android:drawable/ic_menu_search"
-                        app:tint="#333333"
-                        android:layout_marginEnd="16dp"/>
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="展示其他来源"
-                            android:textSize="16sp"
-                            android:textColor="#333333"/>
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="展示其他文件夹里搜索到的音频文件"
-                            android:textSize="12sp"
-                            android:textColor="#999999"/>
-                    </LinearLayout>
-                    <com.google.android.material.switchmaterial.SwitchMaterial
-                        android:id="@+id/switch_show_others"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content" />
+            android:layout_marginBottom="24dp">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+                <LinearLayout android:id="@+id/tv_source_code" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:padding="16dp" android:background="?attr/selectableItemBackground" android:gravity="center_vertical">
+                    <ImageView android:layout_width="24dp" android:layout_height="24dp" android:src="@android:drawable/ic_menu_view" app:tint="#333333" android:layout_marginEnd="16dp"/>
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="GitHub 源码" android:textSize="16sp" android:textColor="#333333"/>
                 </LinearLayout>
-
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#F0F0F0" android:layout_marginStart="56dp"/>
+                <LinearLayout android:id="@+id/layout_license" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:padding="16dp" android:background="?attr/selectableItemBackground" android:gravity="center_vertical">
+                    <ImageView android:layout_width="24dp" android:layout_height="24dp" android:src="@android:drawable/ic_menu_info_details" app:tint="#333333" android:layout_marginEnd="16dp"/>
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="开源许可协议" android:textSize="16sp" android:textColor="#333333"/>
+                </LinearLayout>
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#F0F0F0" android:layout_marginStart="56dp"/>
+                <LinearLayout android:id="@+id/tv_about" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:padding="16dp" android:background="?attr/selectableItemBackground" android:gravity="center_vertical">
+                    <ImageView android:layout_width="24dp" android:layout_height="24dp" android:src="@android:drawable/ic_menu_help" app:tint="#333333" android:layout_marginEnd="16dp"/>
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="关于工具" android:textSize="16sp" android:textColor="#333333"/>
+                </LinearLayout>
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 
-        <!-- 系统与权限 -->
+        <!-- 7. 系统设置 -->
         <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="系统与权限"
-            android:textSize="14sp"
-            android:textColor="#666666"
-            android:layout_marginBottom="8dp"
-            android:layout_marginStart="8dp"/>
-
-        <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="0dp"
-            app:cardBackgroundColor="@android:color/white"
-            android:layout_marginBottom="16dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:padding="16dp"
-                    android:gravity="center_vertical">
-                    <ImageView
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        android:src="@android:drawable/ic_menu_info_details"
-                        app:tint="#333333"
-                        android:layout_marginEnd="16dp"/>
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="版本"
-                            android:textSize="16sp"
-                            android:textColor="#333333"/>
-                        <TextView
-                            android:id="@+id/tv_version"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="1.0.0"
-                            android:textSize="13sp"
-                            android:textColor="#999999"/>
-                    </LinearLayout>
-                </LinearLayout>
-
-                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#F0F0F0" android:layout_marginStart="56dp"/>
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:padding="16dp"
-                    android:gravity="center_vertical">
-                    <ImageView
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        android:src="@android:drawable/ic_menu_today"
-                        app:tint="#333333"
-                        android:layout_marginEnd="16dp"/>
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="安装时间"
-                            android:textSize="16sp"
-                            android:textColor="#333333"/>
-                        <TextView
-                            android:id="@+id/tv_install_time"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="获取中..."
-                            android:textSize="13sp"
-                            android:textColor="#999999"/>
-                    </LinearLayout>
-                </LinearLayout>
-
-                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#F0F0F0" android:layout_marginStart="56dp"/>
-
-                <LinearLayout
-                    android:id="@+id/layout_permission"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:padding="16dp"
-                    android:background="?attr/selectableItemBackground"
-                    android:gravity="center_vertical">
-                    <ImageView
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        android:src="@android:drawable/ic_menu_manage"
-                        app:tint="#333333"
-                        android:layout_marginEnd="16dp"/>
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="所有文件访问权限"
-                            android:textSize="16sp"
-                            android:textColor="#333333"/>
-                        <TextView
-                            android:id="@+id/tv_permission_status"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="未授权"
-                            android:textSize="13sp"
-                            android:textColor="#F44336"/>
-                    </LinearLayout>
-                </LinearLayout>
-
-            </LinearLayout>
-        </androidx.cardview.widget.CardView>
-
-        <!-- 其他 -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="其他"
-            android:textSize="14sp"
-            android:textColor="#666666"
-            android:layout_marginBottom="8dp"
-            android:layout_marginStart="8dp"/>
-
+            android:text="系统设置"
+            android:textSize="13sp"
+            android:textColor="#FF4081"
+            android:textStyle="bold"
+            android:paddingStart="8dp"
+            android:layout_marginBottom="8dp"/>
         <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             app:cardCornerRadius="16dp"
             app:cardElevation="0dp"
             app:cardBackgroundColor="@android:color/white">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical">
-
-                <LinearLayout
-                    android:id="@+id/tv_source_code"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:padding="16dp"
-                    android:background="?attr/selectableItemBackground"
-                    android:gravity="center_vertical">
-                    <ImageView
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        android:src="@android:drawable/ic_menu_view"
-                        app:tint="#333333"
-                        android:layout_marginEnd="16dp"/>
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="GitHub 源码"
-                        android:textSize="16sp"
-                        android:textColor="#333333"/>
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+                <LinearLayout android:id="@+id/layout_permission" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:padding="16dp" android:background="?attr/selectableItemBackground" android:gravity="center_vertical">
+                    <ImageView android:layout_width="24dp" android:layout_height="24dp" android:src="@android:drawable/ic_lock_idle_lock" app:tint="#333333" android:layout_marginEnd="16dp"/>
+                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="文件访问权限" android:textSize="16sp" android:textColor="#333333"/>
+                        <TextView android:id="@+id/tv_permission_status" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="检查中..." android:textSize="12sp" android:textColor="#999999"/>
+                    </LinearLayout>
                 </LinearLayout>
-
                 <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#F0F0F0" android:layout_marginStart="56dp"/>
-
-                <!-- 开源许可 -->
-                <LinearLayout
-                    android:id="@+id/layout_license"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:padding="16dp"
-                    android:background="?attr/selectableItemBackground"
-                    android:gravity="center_vertical">
-                    <ImageView
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        android:src="@android:drawable/ic_menu_info_details"
-                        app:tint="#333333"
-                        android:layout_marginEnd="16dp"/>
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="开源许可"
-                        android:textSize="16sp"
-                        android:textColor="#333333"/>
+                <LinearLayout android:id="@+id/layout_save_path" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:padding="16dp" android:background="?attr/selectableItemBackground" android:gravity="center_vertical">
+                    <ImageView android:layout_width="24dp" android:layout_height="24dp" android:src="@android:drawable/ic_menu_save" app:tint="#333333" android:layout_marginEnd="16dp"/>
+                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="存储路径" android:textSize="16sp" android:textColor="#333333"/>
+                        <TextView android:id="@+id/tv_save_path" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="/Music/MusicDecrypter" android:textSize="12sp" android:textColor="#999999"/>
+                    </LinearLayout>
                 </LinearLayout>
-
                 <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#F0F0F0" android:layout_marginStart="56dp"/>
-
-                <LinearLayout
-                    android:id="@+id/tv_about"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:padding="16dp"
-                    android:background="?attr/selectableItemBackground"
-                    android:gravity="center_vertical">
-                    <ImageView
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        android:src="@android:drawable/ic_menu_help"
-                        app:tint="#333333"
-                        android:layout_marginEnd="16dp"/>
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="关于工具"
-                        android:textSize="16sp"
-                        android:textColor="#333333"/>
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:padding="16dp" android:gravity="center_vertical">
+                    <ImageView android:layout_width="24dp" android:layout_height="24dp" android:src="@android:drawable/ic_menu_search" app:tint="#333333" android:layout_marginEnd="16dp"/>
+                    <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="显示其他来源" android:textSize="16sp" android:textColor="#333333"/>
+                    <com.google.android.material.switchmaterial.SwitchMaterial android:id="@+id/switch_show_others" android:layout_width="wrap_content" android:layout_height="wrap_content" />
                 </LinearLayout>
-
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#F0F0F0" android:layout_marginStart="56dp"/>
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:padding="16dp" android:gravity="center_vertical">
+                    <ImageView android:layout_width="24dp" android:layout_height="24dp" android:src="@android:drawable/ic_menu_info_details" app:tint="#333333" android:layout_marginEnd="16dp"/>
+                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="版本" android:textSize="16sp" android:textColor="#333333"/>
+                        <TextView android:id="@+id/tv_version" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="2.0" android:textSize="12sp" android:textColor="#999999"/>
+                    </LinearLayout>
+                </LinearLayout>
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 

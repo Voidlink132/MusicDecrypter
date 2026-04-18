@@ -6,6 +6,9 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.content.res.ColorStateList;
+import android.graphics.Color;
+import android.graphics.PorterDuff;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -19,6 +22,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -34,31 +38,23 @@ import com.google.android.material.switchmaterial.SwitchMaterial;
 import com.musicdecrypter.R;
 
 import java.io.File;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.Locale;
+import java.util.ArrayList;
+import java.util.List;
 
 public class SettingsFragment extends Fragment {
 
     private TextView tvSavePath;
     private TextView tvPermissionStatus;
     private TextView tvVersion;
-    private TextView tvInstallTime;
     
-    private TextView tvDemoStep;
-    private TextView tvDemoPercent;
-    private ProgressBar pbDemo;
+    private TextView tvStatusNetease;
+    private TextView tvStatusQQ;
     
     private SharedPreferences sp;
     private Handler handler = new Handler(Looper.getMainLooper());
     private int demoProgress = 0;
-    private final String[] demoSteps = {
-            "正在扫描本地音乐...", 
-            "正在上传至核心...", 
-            "正在进行解密...", 
-            "解密完成，正在触发下载...", 
-            "正在写入手机存储..."
-    };
+    private Runnable demoRunnable;
+    private View rootView;
 
     private final ActivityResultLauncher<Intent> dirChooserLauncher = registerForActivityResult(
             new ActivityResultContracts.StartActivityForResult(),
@@ -75,7 +71,8 @@ public class SettingsFragment extends Fragment {
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
-        return inflater.inflate(R.layout.fragment_settings, container, false);
+        rootView = inflater.inflate(R.layout.fragment_settings, container, false);
+        return rootView;
     }
 
     @Override
@@ -83,27 +80,62 @@ public class SettingsFragment extends Fragment {
         super.onViewCreated(view, savedInstanceState);
         sp = requireContext().getSharedPreferences("config", Context.MODE_PRIVATE);
 
+        // 1. 初始化通用视图
         tvSavePath = view.findViewById(R.id.tv_save_path);
         tvPermissionStatus = view.findViewById(R.id.tv_permission_status);
         tvVersion = view.findViewById(R.id.tv_version);
-        tvInstallTime = view.findViewById(R.id.tv_install_time);
+        tvStatusNetease = view.findViewById(R.id.tv_status_netease);
+        tvStatusQQ = view.findViewById(R.id.tv_status_qq);
         
-        tvDemoStep = view.findViewById(R.id.tvDemoStep);
-        tvDemoPercent = view.findViewById(R.id.tvDemoPercent);
-        pbDemo = view.findViewById(R.id.pbDemo);
-        
-        View layoutSavePath = view.findViewById(R.id.layout_save_path);
-        View btnModifyPath = view.findViewById(R.id.btn_modify_path);
-        View btnResetPath = view.findViewById(R.id.btn_reset_path);
-        View layoutPermission = view.findViewById(R.id.layout_permission);
-        View layoutSourceCode = view.findViewById(R.id.tv_source_code);
-        View layoutLicenses = view.findViewById(R.id.layout_license);
-        View layoutAbout = view.findViewById(R.id.tv_about);
-        
-        SwitchMaterial switchShowOthers = view.findViewById(R.id.switch_show_others);
-        SwitchMaterial switchFetchLyric = view.findViewById(R.id.switch_fetch_lyric);
+        // 2. 账号登录
+        view.findViewById(R.id.btn_login_netease).setOnClickListener(v -> {
+            Intent intent = new Intent(getActivity(), LoginActivity.class);
+            intent.putExtra("platform", "netease");
+            intent.putExtra("url", "https://music.163.com/m/login");
+            startActivity(intent);
+        });
 
-        // 歌词二级设置相关组件
+        view.findViewById(R.id.btn_login_qq).setOnClickListener(v -> {
+            Intent intent = new Intent(getActivity(), LoginActivity.class);
+            intent.putExtra("platform", "qq");
+            intent.putExtra("url", "https://y.qq.com");
+            startActivity(intent);
+        });
+
+        // 3. 外观设置
+        TextView tvThemeColor = view.findViewById(R.id.tv_theme_color);
+        TextView tvBackgroundStyle = view.findViewById(R.id.tv_background_style);
+
+        tvThemeColor.setText(sp.getString("theme_color", "默认粉色"));
+        view.findViewById(R.id.btn_theme_color).setOnClickListener(v -> {
+            String[] colors = {"默认粉色", "天空蓝", "活力橙", "极简黑", "深邃紫"};
+            new AlertDialog.Builder(requireContext())
+                    .setTitle("选择主题颜色")
+                    .setItems(colors, (dialog, which) -> {
+                        String selected = colors[which];
+                        sp.edit().putString("theme_color", selected).apply();
+                        tvThemeColor.setText(selected);
+                        applyAppearance();
+                        Toast.makeText(getContext(), "主题颜色已更改", Toast.LENGTH_SHORT).show();
+                    }).show();
+        });
+
+        tvBackgroundStyle.setText(sp.getString("background_style", "默认浅灰"));
+        view.findViewById(R.id.btn_background_style).setOnClickListener(v -> {
+            String[] styles = {"默认浅灰", "纯白", "暗夜黑", "羊皮纸", "毛玻璃"};
+            new AlertDialog.Builder(requireContext())
+                    .setTitle("选择背景样式")
+                    .setItems(styles, (dialog, which) -> {
+                        String selected = styles[which];
+                        sp.edit().putString("background_style", selected).apply();
+                        tvBackgroundStyle.setText(selected);
+                        applyAppearance();
+                        Toast.makeText(getContext(), "背景样式已更改", Toast.LENGTH_SHORT).show();
+                    }).show();
+        });
+
+        // 4. 歌词设置功能
+        SwitchMaterial switchFetchLyric = view.findViewById(R.id.switch_fetch_lyric);
         View layoutLyricSettings = view.findViewById(R.id.layout_lyric_settings);
         TextView tvLyricEncoding = view.findViewById(R.id.tv_lyric_encoding);
         TextView tvLyricFormat = view.findViewById(R.id.tv_lyric_format);
@@ -113,35 +145,16 @@ public class SettingsFragment extends Fragment {
         View layoutCombineSymbol = view.findViewById(R.id.layout_combine_symbol);
         EditText etCombineSymbol = view.findViewById(R.id.et_combine_symbol);
 
-        // 1. 设置路径和版本信息
-        String defaultPath = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC).getAbsolutePath() + "/MusicDecrypter";
-        tvSavePath.setText(defaultPath);
-
-        try {
-            PackageInfo pInfo = requireContext().getPackageManager().getPackageInfo(requireContext().getPackageName(), 0);
-            tvVersion.setText(pInfo.versionName + " (" + pInfo.versionCode + ")");
-            SimpleDateFormat sdf = new SimpleDateFormat("yyyy年MM月dd日", Locale.CHINESE);
-            tvInstallTime.setText(sdf.format(new Date(pInfo.firstInstallTime)));
-        } catch (PackageManager.NameNotFoundException e) {
-            tvVersion.setText("1.0.0 (1)");
-        }
-
-        // 2. 开关逻辑
-        switchShowOthers.setChecked(sp.getBoolean("show_others", false));
-        switchShowOthers.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            sp.edit().putBoolean("show_others", isChecked).apply();
-        });
-
-        // 歌词主开关
+        // 歌词总开关
         boolean fetchLyric = sp.getBoolean("fetch_lyric", false);
         switchFetchLyric.setChecked(fetchLyric);
         layoutLyricSettings.setVisibility(fetchLyric ? View.VISIBLE : View.GONE);
-        switchFetchLyric.setOnCheckedChangeListener((buttonView, isChecked) -> {
+        switchFetchLyric.setOnCheckedChangeListener((btn, isChecked) -> {
             sp.edit().putBoolean("fetch_lyric", isChecked).apply();
             layoutLyricSettings.setVisibility(isChecked ? View.VISIBLE : View.GONE);
         });
 
-        // 编码选择
+        // 编码
         tvLyricEncoding.setText(sp.getString("lyric_encoding", "UTF-8"));
         view.findViewById(R.id.btn_lyric_encoding).setOnClickListener(v -> {
             String[] encodings = {"UTF-8", "UTF-16 LE"};
@@ -154,7 +167,7 @@ public class SettingsFragment extends Fragment {
                     }).show();
         });
 
-        // 格式选择
+        // 格式
         tvLyricFormat.setText(sp.getString("lyric_format", "LRC"));
         view.findViewById(R.id.btn_lyric_format).setOnClickListener(v -> {
             String[] formats = {"LRC", "SRT"};
@@ -171,12 +184,12 @@ public class SettingsFragment extends Fragment {
         boolean bilingual = sp.getBoolean("bilingual_lyric", false);
         switchBilingualLyric.setChecked(bilingual);
         layoutBilingualOptions.setVisibility(bilingual ? View.VISIBLE : View.GONE);
-        switchBilingualLyric.setOnCheckedChangeListener((buttonView, isChecked) -> {
+        switchBilingualLyric.setOnCheckedChangeListener((btn, isChecked) -> {
             sp.edit().putBoolean("bilingual_lyric", isChecked).apply();
             layoutBilingualOptions.setVisibility(isChecked ? View.VISIBLE : View.GONE);
         });
 
-        // 双语类型
+        // 双语展示方式
         String bilingualType = sp.getString("bilingual_type", "合并");
         tvBilingualType.setText(bilingualType);
         layoutCombineSymbol.setVisibility("合并".equals(bilingualType) ? View.VISIBLE : View.GONE);
@@ -202,21 +215,15 @@ public class SettingsFragment extends Fragment {
             }
         });
 
-        // 3. 存储设置点击
-        layoutSavePath.setOnClickListener(v -> openMusicDirectory(tvSavePath.getText().toString()));
+        // 5. 开源与关于
+        view.findViewById(R.id.tv_about).setOnClickListener(v -> new AlertDialog.Builder(requireContext())
+                .setTitle("关于本工具")
+                .setMessage("MusicDecrypter 是一款专业的音乐解密辅助工具。\n\n旨在让音乐回归本质，实现解密自由。")
+                .setPositiveButton("知道了", null)
+                .show());
 
-        btnModifyPath.setOnClickListener(v -> {
-            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
-            dirChooserLauncher.launch(intent);
-        });
-
-        btnResetPath.setOnClickListener(v -> {
-            tvSavePath.setText(defaultPath);
-            Toast.makeText(getContext(), "已恢复默认路径", Toast.LENGTH_SHORT).show();
-        });
-
-        // 4. 权限管理点击
-        layoutPermission.setOnClickListener(v -> {
+        // 6. 系统设置
+        view.findViewById(R.id.layout_permission).setOnClickListener(v -> {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 if (!Environment.isExternalStorageManager()) {
                     try {
@@ -233,43 +240,146 @@ public class SettingsFragment extends Fragment {
             }
         });
 
-        layoutSourceCode.setOnClickListener(v -> {
-            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Voidlink132/MusicDecrypter/"));
-            startActivity(intent);
+        view.findViewById(R.id.layout_save_path).setOnClickListener(v -> openMusicDirectory(tvSavePath.getText().toString()));
+
+        SwitchMaterial switchShowOthers = view.findViewById(R.id.switch_show_others);
+        switchShowOthers.setChecked(sp.getBoolean("show_others", false));
+        switchShowOthers.setOnCheckedChangeListener((btn, isChecked) -> {
+            sp.edit().putBoolean("show_others", isChecked).apply();
         });
 
-        layoutLicenses.setOnClickListener(v -> showLicensesDialog());
+        // 7. 基础信息初始化
+        String defaultPath = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC).getAbsolutePath() + "/MusicDecrypter";
+        tvSavePath.setText(defaultPath);
 
-        layoutAbout.setOnClickListener(v -> new AlertDialog.Builder(requireContext())
-                .setTitle("关于本工具")
-                .setMessage("MusicDecrypter 是一款专业的音乐解密辅助工具。\n\n旨在让音乐回归本质，实现解密自由。")
-                .setPositiveButton("知道了", null)
-                .show());
+        try {
+            PackageInfo pInfo = requireContext().getPackageManager().getPackageInfo(requireContext().getPackageName(), 0);
+            tvVersion.setText(pInfo.versionName);
+        } catch (PackageManager.NameNotFoundException e) {
+            tvVersion.setText("2.0");
+        }
 
+        // 8. 界面演示动画
+        ProgressBar pbDemo = view.findViewById(R.id.pb_demo);
+        TextView tvDemoProgressView = view.findViewById(R.id.tv_demo_progress);
+        demoRunnable = new Runnable() {
+            @Override
+            public void run() {
+                demoProgress++;
+                if (demoProgress > 100) demoProgress = 0;
+                if (pbDemo != null) pbDemo.setProgress(demoProgress);
+                if (tvDemoProgressView != null) tvDemoProgressView.setText(demoProgress + "%");
+                handler.postDelayed(this, 50);
+            }
+        };
+        handler.post(demoRunnable);
+
+        applyAppearance();
         updatePermissionStatus();
-        startDemoLoop();
+        updateLoginStatus();
+    }
+
+    private void applyAppearance() {
+        if (rootView == null) return;
+        
+        // 应用背景样式
+        String bgStyle = sp.getString("background_style", "默认浅灰");
+        int bgColor;
+        switch (bgStyle) {
+            case "纯白": bgColor = Color.WHITE; break;
+            case "暗夜黑": bgColor = Color.parseColor("#121212"); break;
+            case "羊皮纸": bgColor = Color.parseColor("#F5F5DC"); break;
+            case "毛玻璃": bgColor = Color.parseColor("#E0E0E0"); break;
+            default: bgColor = Color.parseColor("#F5F5F7"); break;
+        }
+        rootView.setBackgroundColor(bgColor);
+
+        // 应用主题色
+        String theme = sp.getString("theme_color", "默认粉色");
+        int themeColor;
+        switch (theme) {
+            case "天空蓝": themeColor = Color.parseColor("#2196F3"); break;
+            case "活力橙": themeColor = Color.parseColor("#FF9800"); break;
+            case "极简黑": themeColor = Color.parseColor("#333333"); break;
+            case "深邃紫": themeColor = Color.parseColor("#673AB7"); break;
+            default: themeColor = Color.parseColor("#FF4081"); break;
+        }
+
+        // 1. 修改进度文字和图标演示颜色
+        TextView tvDemoProgress = rootView.findViewById(R.id.tv_demo_progress);
+        if (tvDemoProgress != null) tvDemoProgress.setTextColor(themeColor);
+
+        // 2. 修改 ProgressBar 的颜色
+        ProgressBar pbDemo = rootView.findViewById(R.id.pb_demo);
+        if (pbDemo != null) {
+            pbDemo.setProgressTintList(ColorStateList.valueOf(themeColor));
+        }
+
+        // 3. 批量修改界面中所有原本为粉色的文字（Section 标题等）
+        List<TextView> pinkTextViews = findTextViewsByColor(rootView, Color.parseColor("#FF4081"));
+        for (TextView tv : pinkTextViews) {
+            tv.setTextColor(themeColor);
+        }
+
+        // 4. 批量修改 Switch 的颜色
+        int[][] states = new int[][] {
+            new int[] {-android.R.attr.state_checked},
+            new int[] {android.R.attr.state_checked}
+        };
+        int[] colors = new int[] { Color.LTGRAY, themeColor };
+        ColorStateList switchColors = new ColorStateList(states, colors);
+
+        SwitchMaterial s1 = rootView.findViewById(R.id.switch_fetch_lyric);
+        SwitchMaterial s2 = rootView.findViewById(R.id.switch_bilingual_lyric);
+        SwitchMaterial s3 = rootView.findViewById(R.id.switch_show_others);
+        if (s1 != null) s1.setThumbTintList(switchColors);
+        if (s2 != null) s2.setThumbTintList(switchColors);
+        if (s3 != null) s3.setThumbTintList(switchColors);
+        
+        // 5. 修改一些图标的 Tint
+        ImageView ivDemoStatus = rootView.findViewById(R.id.tv_demo_status).getRootView().findViewById(R.id.pb_demo).getRootView().findViewWithTag("status_icon");
+        // 由于布局中没有 tag，我们根据 ID 或位置找
+        // 这里的逻辑可以针对 fragment_settings.xml 中的 ImageView 进行具体设置
+        ImageView ivThemeIcon = rootView.findViewById(R.id.btn_theme_color).findViewById(android.R.id.icon1); // 这种写法不行，布局中是直接写的
+        
+        // 我们通过 findViewById 找到具体的 ImageView 并设置 Tint
+        View vTheme = rootView.findViewById(R.id.btn_theme_color);
+        if (vTheme instanceof ViewGroup) {
+             View icon = ((ViewGroup) vTheme).getChildAt(0);
+             if (icon instanceof ImageView) ((ImageView) icon).setColorFilter(themeColor, PorterDuff.Mode.SRC_IN);
+        }
+        
+        // 修改各个模块的辅助文字颜色
+        TextView tvBilingualType = rootView.findViewById(R.id.tv_bilingual_type);
+        if (tvBilingualType != null) tvBilingualType.setTextColor(themeColor);
+    }
+
+    private List<TextView> findTextViewsByColor(View view, int targetColor) {
+        List<TextView> result = new ArrayList<>();
+        if (view instanceof ViewGroup) {
+            ViewGroup vg = (ViewGroup) view;
+            for (int i = 0; i < vg.getChildCount(); i++) {
+                result.addAll(findTextViewsByColor(vg.getChildAt(i), targetColor));
+            }
+        } else if (view instanceof TextView) {
+            TextView tv = (TextView) view;
+            if (tv.getCurrentTextColor() == targetColor) {
+                result.add(tv);
+            }
+        }
+        return result;
     }
 
     private void openMusicDirectory(String path) {
         File file = new File(path);
         if (!file.exists()) file.mkdirs();
-        
         try {
             Intent intent = new Intent(Intent.ACTION_VIEW);
             Uri uri = Uri.parse("content://com.android.externalstorage.documents/document/primary%3AMusic%2FMusicDecrypter");
             intent.setDataAndType(uri, "vnd.android.cursor.dir/document");
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION);
 
-            String[] targetPackages = {
-                "com.google.android.documentsui", 
-                "com.android.documentsui", 
-                "com.android.fileexplorer", 
-                "com.miui.explorer",
-                "com.coloros.filemanager",
-                "com.huawei.hidisk"
-            };
-
+            String[] targetPackages = {"com.google.android.documentsui", "com.android.documentsui", "com.android.fileexplorer", "com.miui.explorer", "com.coloros.filemanager", "com.huawei.hidisk"};
             boolean success = false;
             for (String pkg : targetPackages) {
                 try {
@@ -279,7 +389,6 @@ public class SettingsFragment extends Fragment {
                     break;
                 } catch (Exception ignored) {}
             }
-
             if (!success) {
                 intent.setPackage(null);
                 startActivity(Intent.createChooser(intent, "使用文件管理打开"));
@@ -289,58 +398,18 @@ public class SettingsFragment extends Fragment {
         }
     }
 
-    private void showLicensesDialog() {
-        String licenseText = "本应用使用了以下开源项目：\n\n" +
-                "• AndroidX Libraries (Apache 2.0)\n" +
-                "• Material Components (Apache 2.0)\n" +
-                "• Markwon Core (Apache 2.0)\n" +
-                "• ViewPager2 (Apache 2.0)\n" +
-                "• ConstraintLayout (Apache 2.0)\n" +
-                "• RecyclerView (Apache 2.0)\n\n" +
-                "Copyright © 2024 MusicDecrypter Contributors\n" +
-                "Licensed under the Apache License, Version 2.0";
-                
-        new AlertDialog.Builder(requireContext())
-                .setTitle("开源许可")
-                .setMessage(licenseText)
-                .setPositiveButton("知道了", null)
-                .show();
-    }
-
-    private void startDemoLoop() {
-        handler.post(new Runnable() {
-            @Override
-            public void run() {
-                if (pbDemo != null) {
-                    demoProgress = (demoProgress + 1) % 101;
-                    pbDemo.setProgress(demoProgress);
-                    tvDemoPercent.setText(demoProgress + "%");
-                    
-                    int stepIndex = 0;
-                    if (demoProgress < 20) stepIndex = 0;
-                    else if (demoProgress < 40) stepIndex = 1;
-                    else if (demoProgress < 60) stepIndex = 2;
-                    else if (demoProgress < 85) stepIndex = 3;
-                    else stepIndex = 4;
-                    
-                    tvDemoStep.setText(demoSteps[stepIndex]);
-                    
-                    handler.postDelayed(this, 100);
-                }
-            }
-        });
-    }
-
     @Override
     public void onResume() {
         super.onResume();
+        applyAppearance();
         updatePermissionStatus();
+        updateLoginStatus();
     }
 
     @Override
     public void onDestroyView() {
         super.onDestroyView();
-        handler.removeCallbacksAndMessages(null);
+        if (demoRunnable != null) handler.removeCallbacks(demoRunnable);
     }
 
     private void updatePermissionStatus() {
@@ -353,5 +422,15 @@ public class SettingsFragment extends Fragment {
             tvPermissionStatus.setText("系统版本无需此项");
             tvPermissionStatus.setTextColor(0xFF999999);
         }
+    }
+
+    private void updateLoginStatus() {
+        if (tvStatusNetease == null || tvStatusQQ == null) return;
+        boolean hasNetease = !sp.getString("cookie_netease", "").isEmpty();
+        tvStatusNetease.setText(hasNetease ? "已登录 (已解锁 VIP 搜索下载)" : "未登录 (无法下载 VIP 歌曲)");
+        tvStatusNetease.setTextColor(hasNetease ? 0xFF4CAF50 : 0xFF999999);
+        boolean hasQQ = !sp.getString("cookie_qq", "").isEmpty();
+        tvStatusQQ.setText(hasQQ ? "已登录 (已解锁 VIP 搜索下载)" : "未登录 (无法下载 VIP 歌曲)");
+        tvStatusQQ.setTextColor(hasQQ ? 0xFF4CAF50 : 0xFF999999);
     }
 }

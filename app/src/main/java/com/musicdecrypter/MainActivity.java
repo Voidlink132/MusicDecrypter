@@ -30,7 +30,10 @@ import androidx.viewpager2.adapter.FragmentStateAdapter;
 import androidx.viewpager2.widget.ViewPager2;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
+import com.musicdecrypter.ui.OnlineDecryptFragment;
 import com.musicdecrypter.ui.SearchFragment;
+import com.musicdecrypter.ui.SettingsFragment;
+import com.musicdecrypter.ui.DecryptFragment;
 import com.musicdecrypter.util.LyricFetcher;
 
 import java.io.File;
@@ -63,8 +66,8 @@ public class MainActivity extends AppCompatActivity {
         sp = getSharedPreferences("config", Context.MODE_PRIVATE);
 
         checkStoragePermission();
-        initBottomNav();
         initDecryptWebView();
+        initBottomNav();
     }
 
     private void checkStoragePermission() {
@@ -97,24 +100,27 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public Fragment createFragment(int position) {
                 switch (position) {
-                    case 1: return new com.musicdecrypter.ui.DecryptFragment();
-                    case 2: return new com.musicdecrypter.ui.SettingsFragment();
-                    case 0:
+                    case 0: return new SearchFragment();
+                    case 1: return new OnlineDecryptFragment();
+                    case 2: return new DecryptFragment();
+                    case 3: return new SettingsFragment();
                     default: return new SearchFragment();
                 }
             }
+            
             @Override
-            public int getItemCount() { return 3; }
+            public int getItemCount() { return 4; }
         });
 
         viewPager.setUserInputEnabled(false);
-        viewPager.setOffscreenPageLimit(2);
+        viewPager.setOffscreenPageLimit(3);
 
         bottomNav.setOnItemSelectedListener(item -> {
             int id = item.getItemId();
-            if (id == R.id.nav_search) viewPager.setCurrentItem(0, false);
+            if (id == R.id.nav_music_list) viewPager.setCurrentItem(0, false);
             else if (id == R.id.nav_decrypt) viewPager.setCurrentItem(1, false);
-            else if (id == R.id.nav_settings) viewPager.setCurrentItem(2, false);
+            else if (id == R.id.nav_search) viewPager.setCurrentItem(2, false);
+            else if (id == R.id.nav_settings) viewPager.setCurrentItem(3, false);
             return true;
         });
 
@@ -123,9 +129,10 @@ public class MainActivity extends AppCompatActivity {
             public void onPageSelected(int position) {
                 super.onPageSelected(position);
                 switch (position) {
-                    case 0: bottomNav.setSelectedItemId(R.id.nav_search); break;
+                    case 0: bottomNav.setSelectedItemId(R.id.nav_music_list); break;
                     case 1: bottomNav.setSelectedItemId(R.id.nav_decrypt); break;
-                    case 2: bottomNav.setSelectedItemId(R.id.nav_settings); break;
+                    case 2: bottomNav.setSelectedItemId(R.id.nav_search); break;
+                    case 3: bottomNav.setSelectedItemId(R.id.nav_settings); break;
                 }
             }
         });
@@ -330,9 +337,13 @@ public class MainActivity extends AppCompatActivity {
     private void updateSearchProgress(boolean visible, String step, int percent) {
         runOnUiThread(() -> {
             try {
-                Fragment fragment = getSupportFragmentManager().findFragmentByTag("f0");
-                if (fragment instanceof SearchFragment) {
-                    ((SearchFragment) fragment).updateProgress(visible, step, percent);
+                Fragment f0 = getSupportFragmentManager().findFragmentByTag("f0");
+                if (f0 instanceof SearchFragment) {
+                    ((SearchFragment) f0).updateProgress(visible, step, percent);
+                }
+                Fragment f1 = getSupportFragmentManager().findFragmentByTag("f1");
+                if (f1 instanceof OnlineDecryptFragment) {
+                    ((OnlineDecryptFragment) f1).updateProgress(visible, step, percent);
                 }
             } catch (Exception e) {
                 Log.e("UI", "Progress update failed", e);

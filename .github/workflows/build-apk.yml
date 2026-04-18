@@ -1,5 +1,7 @@
-name: Build Android APK (Debug)
+name: Build Android APK
 on:
+  push:
+    branches: [ "master", "main" ]
   workflow_dispatch:
 
 jobs:
@@ -20,13 +22,13 @@ jobs:
         run: chmod +x ./gradlew
 
       - name: Build Debug APK
-        run: ./gradlew assembleDebug # 🔴 改这里：从 assembleRelease 改为 assembleDebug
+        run: ./gradlew assembleDebug
 
-      - name: List Build Outputs (for verification)
-        run: ls -la app/build/outputs/apk/debug/
+      - name: Rename APK
+        run: mv app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/MusicDecrypter-v2.0-debug.apk
 
-      - name: Upload Debug APK Artifact
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MusicDecrypter-Debug-APK # 🔴 改这里：命名为 Debug 版本
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: MusicDecrypter-APK
+          path: app/build/outputs/apk/debug/MusicDecrypter-v2.0-debug.apk

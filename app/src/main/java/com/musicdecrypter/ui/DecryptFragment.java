@@ -6,6 +6,7 @@ import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -25,6 +26,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.tabs.TabLayout;
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.musicdecrypter.R;
@@ -130,9 +132,7 @@ public class DecryptFragment extends Fragment {
 
         loadingBar.setVisibility(View.VISIBLE);
         tvEmpty.setVisibility(View.GONE);
-        songList.clear();
-        adapter.notifyDataSetChanged();
-
+        
         int tabIndex = tabLayout.getSelectedTabPosition();
         if (tabIndex == 0) searchNetease(keyword);
         else if (tabIndex == 1) searchQQ(keyword);
@@ -140,7 +140,7 @@ public class DecryptFragment extends Fragment {
     }
 
     private void searchNetease(String keyword) {
-        String url = "https://music.163.com/api/search/get?s=" + Uri.encode(keyword) + "&type=1&limit=30";
+        String url = "https://music.163.com/api/cloudsearch/pc?s=" + Uri.encode(keyword) + "&type=1&limit=30";
         Request request = addHeaders(new Request.Builder().url(url), "netease").build();
         client.newCall(request).enqueue(new Callback() {
             @Override public void onFailure(Call call, IOException e) { showError("搜索失败: " + e.getMessage()); }
@@ -149,32 +149,35 @@ public class DecryptFragment extends Fragment {
                     String body = response.body().string();
                     JsonObject json = JsonParser.parseString(body).getAsJsonObject();
                     List<Song> results = new ArrayList<>();
-                    if (json.has("code") && json.get("code").getAsInt() == 200 && json.has("result")) {
+                    if (json.has("result") && !json.get("result").isJsonNull()) {
                         JsonObject res = json.getAsJsonObject("result");
-                        if (res.has("songs") && res.get("songs").isJsonArray()) {
+                        if (res.has("songs") && !res.get("songs").isJsonNull()) {
                             JsonArray songs = res.getAsJsonArray("songs");
-                            for (int i = 0; i < songs.size(); i++) {
-                                JsonObject s = songs.get(i).getAsJsonObject();
+                            for (JsonElement element : songs) {
+                                JsonObject s = element.getAsJsonObject();
                                 String id = s.get("id").getAsString();
                                 String name = s.get("name").getAsString();
                                 String artist = "未知歌手";
-                                if (s.has("artists") && s.get("artists").isJsonArray()) {
-                                    JsonArray artists = s.getAsJsonArray("artists");
-                                    if (artists.size() > 0) artist = artists.get(0).getAsJsonObject().get("name").getAsString();
+                                if (s.has("ar")) {
+                                    JsonArray ar = s.getAsJsonArray("ar");
+                                    if (ar.size() > 0) artist = ar.get(0).getAsJsonObject().get("name").getAsString();
                                 }
-                                String album = s.has("album") ? s.getAsJsonObject("album").get("name").getAsString() : "未知专辑";
+                                String album = s.has("al") ? s.getAsJsonObject("al").get("name").getAsString() : "";
                                 results.add(new Song(id, name, artist, album, "netease"));
                             }
                         }
                     }
                     updateUI(results);
-                } catch (Exception e) { showError("网易云解析失败"); }
+                } catch (Exception e) { 
+                    e.printStackTrace();
+                    showError("网易云解析失败"); 
+                }
             }
         });
     }
 
     private void searchQQ(String keyword) {
-        String url = "https://c.y.qq.com/soso/fcgi-bin/client_search_cp?p=1&n=20&w=" + Uri.encode(keyword) + "&format=json";
+        String url = "https://c.y.qq.com/soso/fcgi-bin/client_search_cp?p=1&n=20&w=" + Uri.encode(keyword) + "&format=json&new_json=1";
         Request request = addHeaders(new Request.Builder().url(url), "qq").build();
         client.newCall(request).enqueue(new Callback() {
             @Override public void onFailure(Call call, IOException e) { showError("QQ搜索请求失败"); }
@@ -186,26 +189,33 @@ public class DecryptFragment extends Fragment {
                     }
                     JsonObject json = JsonParser.parseString(body).getAsJsonObject();
                     List<Song> results = new ArrayList<>();
+                    
                     if (json.has("data") && !json.get("data").isJsonNull()) {
                         JsonObject data = json.getAsJsonObject("data");
-                        if (data.has("song")) {
-                            JsonArray list = data.getAsJsonObject("song").getAsJsonArray("list");
-                            for (int i = 0; i < list.size(); i++) {
-                                JsonObject s = list.get(i).getAsJsonObject();
-                                String mid = s.get("songmid").getAsString();
-                                String name = s.get("songname").getAsString();
-                                String artist = "未知歌手";
-                                if (s.has("singer") && s.get("singer").isJsonArray()) {
-                                    JsonArray singers = s.getAsJsonArray("singer");
-                                    if (singers.size() > 0) artist = singers.get(0).getAsJsonObject().get("name").getAsString();
+                        if (data.has("song") && !data.get("song").isJsonNull()) {
+                            JsonObject songObj = data.getAsJsonObject("song");
+                            if (songObj.has("list") && !songObj.get("list").isJsonNull()) {
+                                JsonArray list = songObj.getAsJsonArray("list");
+                                for (JsonElement element : list) {
+                                    JsonObject s = element.getAsJsonObject();
+                                    String mid = s.has("mid") ? s.get("mid").getAsString() : (s.has("songmid") ? s.get("songmid").getAsString() : "");
+                                    String name = s.has("name") ? s.get("name").getAsString() : (s.has("songname") ? s.get("songname").getAsString() : "未知歌曲");
+                                    String artist = "未知歌手";
+                                    if (s.has("singer")) {
+                                        JsonArray singers = s.getAsJsonArray("singer");
+                                        if (singers.size() > 0) artist = singers.get(0).getAsJsonObject().get("name").getAsString();
+                                    }
+                                    String album = s.has("album") ? s.getAsJsonObject("album").get("name").getAsString() : "";
+                                    if (!mid.isEmpty()) results.add(new Song(mid, name, artist, album, "qq"));
                                 }
-                                String album = s.has("albumname") ? s.get("albumname").getAsString() : "";
-                                results.add(new Song(mid, name, artist, album, "qq"));
                             }
                         }
                     }
                     updateUI(results);
-                } catch (Exception e) { showError("QQ解析异常"); }
+                } catch (Exception e) { 
+                    e.printStackTrace();
+                    showError("QQ解析异常"); 
+                }
             }
         });
     }
@@ -222,21 +232,24 @@ public class DecryptFragment extends Fragment {
                     List<Song> results = new ArrayList<>();
                     if (json.has("data") && !json.get("data").isJsonNull()) {
                         JsonObject data = json.getAsJsonObject("data");
-                        if (data.has("lists") && data.get("lists").isJsonArray()) {
+                        if (data.has("lists") && !data.get("lists").isJsonNull()) {
                             JsonArray lists = data.getAsJsonArray("lists");
-                            for (int i = 0; i < lists.size(); i++) {
-                                JsonObject s = lists.get(i).getAsJsonObject();
-                                String hash = s.get("FileHash").getAsString();
-                                String name = s.get("SongName").getAsString();
-                                String artist = s.get("SingerName").getAsString();
-                                String album = s.get("AlbumName").getAsString();
+                            for (JsonElement element : lists) {
+                                JsonObject s = element.getAsJsonObject();
+                                String hash = s.has("FileHash") ? s.get("FileHash").getAsString() : "";
+                                String name = s.has("SongName") ? s.get("SongName").getAsString() : "未知歌曲";
+                                String artist = s.has("SingerName") ? s.get("SingerName").getAsString() : "未知歌手";
+                                String album = s.has("AlbumName") ? s.get("AlbumName").getAsString() : "";
                                 String albumId = s.has("AlbumID") ? s.get("AlbumID").getAsString() : "0";
-                                results.add(new Song(hash, name, artist, album + "__ID__" + albumId, "kugou"));
+                                if (!hash.isEmpty()) results.add(new Song(hash, name, artist, album + "__ID__" + albumId, "kugou"));
                             }
                         }
                     }
                     updateUI(results);
-                } catch (Exception e) { showError("酷狗解析失败"); }
+                } catch (Exception e) { 
+                    e.printStackTrace();
+                    showError("酷狗解析失败"); 
+                }
             }
         });
     }
@@ -246,8 +259,12 @@ public class DecryptFragment extends Fragment {
             downloadSong(song, "128000"); 
             return;
         }
+        String[] qualities = {"标准 (128kbps)", "较高 (192kbps)", "极高 (320kbps)", "无损 (FLAC)"};
         String[] brs = {"128000", "192000", "320000", "999000"};
-        downloadSong(song, brs[0]);
+        new AlertDialog.Builder(requireContext())
+                .setTitle("选择音质")
+                .setItems(qualities, (dialog, which) -> downloadSong(song, brs[which]))
+                .show();
     }
 
     private void downloadSong(Song song, String br) {
@@ -293,14 +310,26 @@ public class DecryptFragment extends Fragment {
             @Override public void onFailure(Call call, IOException e) { showError("获取QQ链接失败"); }
             @Override public void onResponse(Call call, Response response) throws IOException {
                 try {
-                    JsonObject json = JsonParser.parseString(response.body().string()).getAsJsonObject();
-                    JsonObject req = json.getAsJsonObject("req");
-                    JsonObject dataObj = req.getAsJsonObject("data");
-                    JsonArray midUrlInfo = dataObj.getAsJsonArray("midurlinfo");
-                    String purl = midUrlInfo.get(0).getAsJsonObject().get("purl").getAsString();
-                    if (purl != null && !purl.isEmpty()) {
-                        startDownloadTask(song.getName() + " - " + song.getArtist() + ".mp3", "http://ws.stream.qqmusic.qq.com/" + purl);
-                    } else showError("版权限制或建议登录");
+                    String resBody = response.body().string();
+                    JsonObject json = JsonParser.parseString(resBody).getAsJsonObject();
+                    JsonObject req = json.has("req") ? json.getAsJsonObject("req") : (json.has("req_0") ? json.getAsJsonObject("req_0") : null);
+                    if (req != null && req.has("data")) {
+                        JsonObject dataObj = req.getAsJsonObject("data");
+                        if (dataObj.has("midurlinfo")) {
+                            JsonArray midUrlInfo = dataObj.getAsJsonArray("midurlinfo");
+                            if (midUrlInfo.size() > 0) {
+                                JsonObject first = midUrlInfo.get(0).getAsJsonObject();
+                                if (first.has("purl") && !first.get("purl").isJsonNull()) {
+                                    String purl = first.get("purl").getAsString();
+                                    if (purl != null && !purl.isEmpty()) {
+                                        startDownloadTask(song.getName() + " - " + song.getArtist() + ".mp3", "http://ws.stream.qqmusic.qq.com/" + purl);
+                                        return;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    showError("版权限制或建议登录");
                 } catch (Exception e) { showError("QQ解析链接失败"); }
             }
         });
@@ -319,12 +348,19 @@ public class DecryptFragment extends Fragment {
             @Override public void onFailure(Call call, IOException e) { showError("获取酷狗链接失败"); }
             @Override public void onResponse(Call call, Response response) throws IOException {
                 try {
-                    JsonObject json = JsonParser.parseString(response.body().string()).getAsJsonObject();
-                    JsonObject data = json.getAsJsonObject("data");
-                    String dUrl = data.get("play_url").getAsString();
-                    if (!dUrl.isEmpty()) {
-                        startDownloadTask(song.getName() + " - " + song.getArtist() + ".mp3", dUrl);
-                    } else showError("资源不存在或需要VIP");
+                    String body = response.body().string();
+                    JsonObject json = JsonParser.parseString(body).getAsJsonObject();
+                    if (json.has("data") && !json.get("data").isJsonNull()) {
+                        JsonObject data = json.getAsJsonObject("data");
+                        if (data.has("play_url") && !data.get("play_url").isJsonNull()) {
+                            String dUrl = data.get("play_url").getAsString();
+                            if (!dUrl.isEmpty()) {
+                                startDownloadTask(song.getName() + " - " + song.getArtist() + ".mp3", dUrl);
+                                return;
+                            }
+                        }
+                    }
+                    showError("资源不存在或需要VIP");
                 } catch (Exception e) { showError("酷狗解析链接失败"); }
             }
         });
@@ -370,20 +406,38 @@ public class DecryptFragment extends Fragment {
             return new ViewHolder(LayoutInflater.from(parent.getContext()).inflate(R.layout.item_music_file, parent, false));
         }
         @Override public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
-            if (data == null || position < 0 || position >= data.size()) return;
-            Song song = data.get(position);
-            String albumName = song.getAlbum() != null ? song.getAlbum().split("__ID__")[0] : "";
-            holder.tvName.setText(song.getName());
-            holder.tvInfo.setText(song.getArtist() + " - " + albumName);
-            holder.btnDownload.setText("下载");
-            holder.btnDownload.setOnClickListener(v -> listener.onClick(song));
-            int color = "netease".equals(song.getPlatform()) ? 0xFFFF4081 : ("qq".equals(song.getPlatform()) ? 0xFF4CAF50 : 0xFF2196F3);
-            holder.btnDownload.setTextColor(color);
+            if (position < 0 || position >= data.size()) return;
+            try {
+                Song song = data.get(position);
+                String albumName = "";
+                if (song.getAlbum() != null) {
+                    albumName = song.getAlbum().split("__ID__")[0];
+                }
+                holder.tvName.setText(song.getName());
+                holder.tvInfo.setText(song.getArtist() + (albumName.isEmpty() ? "" : " - " + albumName));
+                holder.btnDownload.setText("下载");
+                holder.btnDownload.setOnClickListener(v -> {
+                    int currentPos = holder.getBindingAdapterPosition();
+                    if (currentPos != RecyclerView.NO_POSITION && currentPos < data.size()) {
+                        listener.onClick(data.get(currentPos));
+                    }
+                });
+                int color = "netease".equals(song.getPlatform()) ? 0xFFFF4081 : ("qq".equals(song.getPlatform()) ? 0xFF4CAF50 : 0xFF2196F3);
+                holder.btnDownload.setTextColor(color);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
-        @Override public int getItemCount() { return data == null ? 0 : data.size(); }
+        @Override public int getItemCount() { return data.size(); }
         static class ViewHolder extends RecyclerView.ViewHolder {
             TextView tvName, tvInfo; android.widget.Button btnDownload;
-            ViewHolder(View v) { super(v); tvName = v.findViewById(R.id.tv_file_name); tvInfo = v.findViewById(R.id.tv_file_path); btnDownload = v.findViewById(R.id.btn_decrypt); }
+            ViewHolder(View v) { 
+                super(v); 
+                tvName = v.findViewById(R.id.tv_file_name); 
+                tvInfo = v.findViewById(R.id.tv_file_path); 
+                btnDownload = v.findViewById(R.id.btn_decrypt); 
+                v.setPadding(16, 16, 16, 16);
+            }
         }
     }
 }

@@ -43,7 +43,7 @@ public class SearchFragment extends Fragment {
     private SharedPreferences sp;
 
     private static final String[] SUPPORT_EXTENSIONS = {
-            ".ncm", ".mgg", ".mflac", ".kgm", ".kgma", ".qmc0", ".qmcflac", ".qmc3", ".qmcogg", ".tkm", ".kwm",
+            ".ncm", ".mgg", ".mflac", ".mflac0", ".kgm", ".kgma", ".qmc0", ".qmcflac", ".qmc3", ".qmcogg", ".tkm", ".kwm",
             ".mp3", ".flac", ".ogg", ".wav", ".m4a", ".aac"
     };
 

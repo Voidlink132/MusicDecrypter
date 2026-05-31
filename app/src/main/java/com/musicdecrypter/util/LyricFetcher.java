@@ -41,21 +41,24 @@ public class LyricFetcher {
     }
 
     public static void fetchLyric(Context context, String fileName, File saveDir, LyricCallback callback) {
-        String keyword = fileName;
-        if (keyword.contains(".")) {
-            keyword = keyword.substring(0, keyword.lastIndexOf("."));
+        // 1. 提取基础文件名，用于最后的命名
+        String baseName = fileName;
+        if (baseName.contains(".")) {
+            baseName = baseName.substring(0, baseName.lastIndexOf("."));
         }
-        // 更精准的关键词提取：移除常见的各种后缀和无用信息
-        keyword = keyword.replaceAll("\\[.*?\\]", "")
+        final String finalTargetFileName = baseName;
+
+        // 2. 清理关键词用于搜索
+        String keyword = finalTargetFileName.replaceAll("\\[.*?\\]", "")
                 .replaceAll("\\(.*?\\)", "")
                 .replaceAll("(?i)copy", "")
                 .replaceAll("(?i)lyrics", "")
                 .trim();
 
-        searchNetease(context, keyword, saveDir, callback);
+        searchNetease(context, keyword, finalTargetFileName, saveDir, callback);
     }
 
-    private static void searchNetease(Context context, String keyword, File saveDir, LyricCallback callback) {
+    private static void searchNetease(Context context, String keyword, String finalTargetFileName, File saveDir, LyricCallback callback) {
         String searchUrl = "https://music.163.com/api/search/get?s=" + UriUtils.encode(keyword) + "&type=1&limit=1";
         Request request = new Request.Builder()
                 .url(searchUrl)
@@ -84,8 +87,7 @@ public class LyricFetcher {
                             if (songs != null && songs.size() > 0) {
                                 JsonObject song = songs.get(0).getAsJsonObject();
                                 long id = song.get("id").getAsLong();
-                                String songName = song.get("name").getAsString();
-                                downloadLyric(context, id, songName, saveDir, callback);
+                                downloadLyric(context, id, finalTargetFileName, saveDir, callback);
                                 return;
                             }
                         }
@@ -98,8 +100,7 @@ public class LyricFetcher {
         });
     }
 
-    private static void downloadLyric(Context context, long id, String songName, File saveDir, LyricCallback callback) {
-        // NetEase API: lv=1 (original), tv=-1 (translation), kv=1 (metadata)
+    private static void downloadLyric(Context context, long id, String finalTargetFileName, File saveDir, LyricCallback callback) {
         String lyricUrl = "https://music.163.com/api/song/lyric?id=" + id + "&lv=1&kv=1&tv=-1";
         Request request = new Request.Builder()
                 .url(lyricUrl)
@@ -121,7 +122,7 @@ public class LyricFetcher {
                 try {
                     String body = response.body().string();
                     JsonObject json = JsonParser.parseString(body).getAsJsonObject();
-                    processLyric(context, json, songName, saveDir, callback);
+                    processLyric(context, json, finalTargetFileName, saveDir, callback);
                 } catch (Exception e) {
                     callback.onError("解析歌词失败: " + e.getMessage());
                 }
@@ -129,7 +130,7 @@ public class LyricFetcher {
         });
     }
 
-    private static void processLyric(Context context, JsonObject json, String songName, File saveDir, LyricCallback callback) {
+    private static void processLyric(Context context, JsonObject json, String finalTargetFileName, File saveDir, LyricCallback callback) {
         SharedPreferences sp = context.getSharedPreferences("config", Context.MODE_PRIVATE);
         boolean bilingual = sp.getBoolean("bilingual_lyric", false);
         String encoding = sp.getString("lyric_encoding", "UTF-8");
@@ -164,7 +165,8 @@ public class LyricFetcher {
         }
 
         String extension = format.toLowerCase();
-        File lrcFile = new File(saveDir, songName + "." + extension);
+        // 关键点：强制使用与歌曲完全一致的文件名
+        File lrcFile = new File(saveDir, finalTargetFileName + "." + extension);
         
         Charset charset = "UTF-16 LE".equals(encoding) ? StandardCharsets.UTF_16LE : StandardCharsets.UTF_8;
         
@@ -173,9 +175,11 @@ public class LyricFetcher {
                 fos.write(new byte[]{(byte)0xFF, (byte)0xFE}); // BOM
             }
             fos.write(finalContent.getBytes(charset));
+            fos.flush();
+            fos.getFD().sync(); // 彻底防止 0B 文件
             callback.onSuccess(lrcFile);
         } catch (IOException e) {
-            callback.onError("保存文件失败: " + e.getMessage());
+            callback.onError("保存歌词文件失败: " + e.getMessage());
         }
     }
 
@@ -204,7 +208,6 @@ public class LyricFetcher {
                 sb.append(time).append(mainLine).append("\n");
                 sb.append(time).append(transLine).append("\n");
             } else if ("独立".equals(type)) {
-                // 通常独立指分文件，这里按顺序排列
                 sb.append(time).append(mainLine).append("\n");
                 sb.append(time).append(transLine).append("\n");
             }

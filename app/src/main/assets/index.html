@@ -20,7 +20,7 @@
 </head>
 <body>
 <div class="container">
-    <input type="file" id="fileInput" multiple accept=".ncm,.mgg,.mflac,.kgm,.kgma,.qmc0,.qmcflac">
+    <input type="file" id="fileInput" multiple accept=".ncm,.mgg,.mflac,.mflac0,.kgm,.kgma,.qmc0,.qmc1,.qmc2,.qmc3,.qmcflac,.qmcogg,.tkm">
     <button class="upload-btn" onclick="document.getElementById('fileInput').click()">选择加密音乐文件</button>
     <div id="resultList"></div>
 </div>
@@ -78,13 +78,13 @@ const unlockMusic = (() => {
 
             let fmt = 'mp3';
             if(decAudio[0]===0x66&&decAudio[1]===0x4C&&decAudio[2]===0x61&&decAudio[3]===0x43) fmt='flac';
-            return {fileName:name.replace('.ncm','.'+fmt), format:fmt, data:decAudio};
+            return {fileName:name.replace(/\.ncm$/i,'.'+fmt), format:fmt, data:decAudio};
         },
 
         qmc: async (name, data) => {
             const ext = name.split('.').pop().toLowerCase();
             let fmt = 'mp3';
-            if(ext==='mflac'||ext==='flac') fmt='flac';
+            if(ext==='mflac'||ext==='mflac0'||ext==='qmcflac'||ext==='flac') fmt='flac';
             const keyMap = new Uint8Array([0x77,0x48,0x32,0x73,0xDE,0xF2,0xC0,0x8F,0x99,0x1F,0xEE,0x1F,0x55,0x0A,0x79,0x1D,0x29,0x4D,0x5F,0x3A,0x1E,0x47,0x23,0x3D,0xBD,0x6E,0x79,0x5D,0x7B,0xF9,0x03,0x1D,0xC1,0x74,0x99,0x15,0x0B,0xCB,0x9F,0x5A,0x2F,0x5E,0x95,0x98,0x5F,0x12,0x04,0x9C,0x7E,0x85,0x2E,0x6A,0x13,0x9D,0x3E,0x6D,0x32,0x1E,0x52,0x36,0x93,0x31,0x00,0x0E,0xED,0x12,0x8E,0x10,0x7D,0xE4,0x4A,0x90,0x36,0xB2,0x99,0xDD,0xDD,0x5D,0xDD,0x59,0x53,0x98,0x52,0x44,0x4B,0x9E,0x32,0x1C,0x57,0x38,0x3C,0x5E,0x5D,0x9B,0x15,0xF5,0x1E,0x5C,0x96,0x59,0x16,0x2E,0x32,0x53,0xD8,0x54,0x8D,0x13,0x43,0xCB,0x99,0x15,0x0B,0xCB,0x9F,0x5A,0x2F,0x5E,0x95,0x98,0x5F]);
             const dec = new Uint8Array(data.length);
             for(let i=0;i<data.length;i++){
@@ -92,7 +92,7 @@ const unlockMusic = (() => {
                 if(i>0x7FFF) k = keyMap[(i%0x7FFF)%0x80];
                 dec[i] = data[i] ^ k;
             }
-            return {fileName:name.replace(/\.(mgg|mflac|qmc\d+|qmcflac)/i,'.'+fmt), format:fmt, data:dec};
+            return {fileName:name.replace(/\.(mgg|mflac|mflac0|qmc\d+|qmcflac|qmcogg|tkm)$/i,'.'+fmt), format:fmt, data:dec};
         },
 
         kgm: async (name, data) => {
@@ -103,16 +103,16 @@ const unlockMusic = (() => {
             for(let i=0;i<audio.length;i++) dec[i] = audio[i] ^ key[i%key.length];
             let fmt = 'mp3';
             if(dec[0]===0x66&&dec[1]===0x4C&&dec[2]===0x61&&dec[3]===0x43) fmt='flac';
-            return {fileName:name.replace(/\.(kgm|kgma)/i,'.'+fmt), format:fmt, data:dec};
+            return {fileName:name.replace(/\.(kgm|kgma)$/i,'.'+fmt), format:fmt, data:dec};
         }
     };
 
     const decrypt = async (name, data) => {
         const ext = name.split('.').pop().toLowerCase();
         if(ext==='ncm') return decrypters.ncm(name, data);
-        if(['mgg','mflac','qmc0','qmc1','qmc2','qmc3','qmcflac'].includes(ext)) return decrypters.qmc(name, data);
+        if(['mgg','mflac','mflac0','qmc0','qmc1','qmc2','qmc3','qmcflac','qmcogg','tkm'].includes(ext)) return decrypters.qmc(name, data);
         if(['kgm','kgma'].includes(ext)) return decrypters.kgm(name, data);
-        throw new Error('不支持的格式');
+        throw new Error('不支持的格式: ' + ext);
     };
 
     return {decrypt};

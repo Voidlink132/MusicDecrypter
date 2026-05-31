@@ -2,6 +2,7 @@ package com.musicdecrypter.ui;
 
 import android.app.DownloadManager;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Bundle;
@@ -31,7 +32,9 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.musicdecrypter.R;
 import com.musicdecrypter.model.Song;
+import com.musicdecrypter.util.LyricFetcher;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -112,6 +115,7 @@ public class DecryptFragment extends Fragment {
         builder.addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
         if ("netease".equals(platform)) {
             builder.addHeader("Referer", "https://music.163.com/");
+            builder.addHeader("Origin", "https://music.163.com");
         } else if ("qq".equals(platform)) {
             builder.addHeader("Referer", "https://y.qq.com/");
         } else {
@@ -274,6 +278,37 @@ public class DecryptFragment extends Fragment {
     }
 
     private void fetchNeteasePlayUrl(Song song, String br) {
+        // 新版API：song/url/v1，带 os=pc 参数，更接近网页端行为
+        String url = "https://music.163.com/api/song/url/v1?id=" + song.getId() + "&level=" + brToLevel(br) + "&os=pc";
+        Request request = addHeaders(new Request.Builder().url(url), "netease").build();
+        client.newCall(request).enqueue(new Callback() {
+            @Override public void onFailure(Call call, IOException e) { showError("获取失败"); }
+            @Override public void onResponse(Call call, Response response) throws IOException {
+                try {
+                    JsonObject json = JsonParser.parseString(response.body().string()).getAsJsonObject();
+                    JsonArray data = json.getAsJsonArray("data");
+                    if (data != null && data.size() > 0) {
+                        JsonObject first = data.get(0).getAsJsonObject();
+                        if (first.has("url") && !first.get("url").isJsonNull()) {
+                            String playUrl = first.get("url").getAsString();
+                            if (!playUrl.isEmpty()) {
+                                String ext = getUrlExtension(playUrl, br);
+                                String fileName = song.getName() + " - " + song.getArtist() + ext;
+                                startDownloadTask(fileName, playUrl);
+                                return;
+                            }
+                        }
+                    }
+                    // 如果新版 API 失败，尝试旧版 API 作为 fallback
+                    fetchNeteasePlayUrlLegacy(song, br);
+                } catch (Exception e) { 
+                    fetchNeteasePlayUrlLegacy(song, br);
+                }
+            }
+        });
+    }
+
+    private void fetchNeteasePlayUrlLegacy(Song song, String br) {
         String url = "https://music.163.com/api/song/enhance/player/url?id=" + song.getId() + "&ids=[" + song.getId() + "]&br=" + br;
         Request request = addHeaders(new Request.Builder().url(url), "netease").build();
         client.newCall(request).enqueue(new Callback() {
@@ -282,12 +317,42 @@ public class DecryptFragment extends Fragment {
                 try {
                     JsonObject json = JsonParser.parseString(response.body().string()).getAsJsonObject();
                     JsonArray data = json.getAsJsonArray("data");
-                    if (data.size() > 0 && !data.get(0).getAsJsonObject().get("url").isJsonNull()) {
-                        startDownloadTask(song.getName() + " - " + song.getArtist() + ".mp3", data.get(0).getAsJsonObject().get("url").getAsString());
-                    } else showError("无权限下载");
+                    if (data != null && data.size() > 0) {
+                        JsonObject first = data.get(0).getAsJsonObject();
+                        if (first.has("url") && !first.get("url").isJsonNull()) {
+                            String playUrl = first.get("url").getAsString();
+                            if (!playUrl.isEmpty()) {
+                                String ext = getUrlExtension(playUrl, br);
+                                String fileName = song.getName() + " - " + song.getArtist() + ext;
+                                startDownloadTask(fileName, playUrl);
+                                return;
+                            }
+                        }
+                    }
+                    String cookie = getPlatformCookie("netease");
+                    if (cookie.isEmpty()) {
+                        showError("无权限：请在设置中登录网易云账号");
+                    } else {
+                        showError("无权限下载，该歌曲可能需要VIP");
+                    }
                 } catch (Exception e) { showError("链接失效"); }
             }
         });
+    }
+
+    private String brToLevel(String br) {
+        switch (br) {
+            case "192000": return "higher";
+            case "320000": return "exhigh";
+            case "999000": return "lossless";
+            default: return "standard";
+        }
+    }
+
+    private String getUrlExtension(String url, String br) {
+        if (url.contains(".flac") || "999000".equals(br)) return ".flac";
+        if (url.contains(".ogg")) return ".ogg";
+        return ".mp3";
     }
 
     private String getUinFromCookie(String cookie) {
@@ -322,14 +387,20 @@ public class DecryptFragment extends Fragment {
                                 if (first.has("purl") && !first.get("purl").isJsonNull()) {
                                     String purl = first.get("purl").getAsString();
                                     if (purl != null && !purl.isEmpty()) {
-                                        startDownloadTask(song.getName() + " - " + song.getArtist() + ".mp3", "http://ws.stream.qqmusic.qq.com/" + purl);
+                                        String sip = "";
+                                        if (dataObj.has("sip") && dataObj.get("sip").isJsonArray()) {
+                                            JsonArray sipArr = dataObj.getAsJsonArray("sip");
+                                            if (sipArr.size() > 0) sip = sipArr.get(0).getAsString();
+                                        }
+                                        String fullUrl = sip.isEmpty() ? "http://ws.stream.qqmusic.qq.com/" + purl : sip + purl;
+                                        startDownloadTask(song.getName() + " - " + song.getArtist() + ".mp3", fullUrl);
                                         return;
                                     }
                                 }
                             }
                         }
                     }
-                    showError("版权限制或建议登录");
+                    showError("版权限制或建议登录QQ账号");
                 } catch (Exception e) { showError("QQ解析链接失败"); }
             }
         });
@@ -375,7 +446,30 @@ public class DecryptFragment extends Fragment {
             request.setDestinationInExternalPublicDir(Environment.DIRECTORY_MUSIC, "MusicDecrypter/" + fileName);
             DownloadManager dm = (DownloadManager) getContext().getSystemService(Context.DOWNLOAD_SERVICE);
             if (dm != null) dm.enqueue(request);
+
+            // 下载后自动匹配歌词
+            checkAndFetchLyric(fileName);
         });
+    }
+
+    private void checkAndFetchLyric(String fileName) {
+        if (getContext() == null) return;
+        SharedPreferences sp = getContext().getSharedPreferences("config", Context.MODE_PRIVATE);
+        if (sp.getBoolean("fetch_lyric", false)) {
+            File saveDir = new File(Environment.getExternalStorageDirectory(), "Music/MusicDecrypter");
+            LyricFetcher.fetchLyric(getContext(), fileName, saveDir, new LyricFetcher.LyricCallback() {
+                @Override
+                public void onSuccess(File lyricFile) {
+                    if (getActivity() == null) return;
+                    getActivity().runOnUiThread(() -> {
+                        Toast.makeText(getContext(), "歌词已匹配下载", Toast.LENGTH_SHORT).show();
+                        getContext().sendBroadcast(new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, Uri.fromFile(lyricFile)));
+                    });
+                }
+                @Override
+                public void onError(String msg) { /* 歌词匹配失败静默处理 */ }
+            });
+        }
     }
 
     private void updateUI(List<Song> results) {

@@ -70,9 +70,9 @@ public class FileScannerUtils {
     }
 
     private static final String[] SUPPORT_EXTS = {
-            ".ncm", ".mflac", ".mgg", ".kgm", ".kgma", ".kwm",
+            ".ncm", ".mflac", ".mflac0", ".mgg", ".kgm", ".kgma", ".kwm",
             ".qmc0", ".qmc1", ".qmc2", ".qmc3", ".qmcflac", ".qmcogg",
-            ".mp3", ".ogg", ".flac", ".wav", ".m4a" // 增加普通格式支持
+            ".mp3", ".ogg", ".flac", ".wav", ".m4a"
     };
 
     public static class MusicFileInfo {

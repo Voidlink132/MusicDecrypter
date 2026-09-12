@@ -1,8 +1,10 @@
 package com.musicdecrypter;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.media.MediaScannerConnection;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -23,6 +25,8 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.Fragment;
@@ -44,20 +48,45 @@ import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 
+@SuppressWarnings("deprecation")
 public class MainActivity extends AppCompatActivity {
 
     public static final String ONLINE_DECRYPT_URL = "https://music-unlock.netlify.app";
-    private static final int FILE_CHOOSER_RESULT_CODE = 1001;
+    private static final String TAG = "MainActivity";
 
     private WebView decryptWebView;
     private ViewPager2 viewPager;
     private BottomNavigationView bottomNav;
 
     private File pendingFile;
-    private String targetFileName; 
+    private String targetFileName;
     private boolean isPageFinished = false;
     private boolean isDownloading = false;
     private SharedPreferences sp;
+
+    private final ActivityResultLauncher<Intent> fileChooserLauncher = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(),
+            result -> {
+                if (result.getResultCode() == RESULT_OK && result.getData() != null && result.getData().getData() != null) {
+                    Uri uri = result.getData().getData();
+                    try {
+                        String fileName = getFileNameFromUri(uri);
+                        File cacheFile = new File(getExternalCacheDir(), fileName);
+                        try (InputStream is = getContentResolver().openInputStream(uri);
+                             FileOutputStream fos = new FileOutputStream(cacheFile)) {
+                            byte[] buffer = new byte[8192];
+                            int len;
+                            while ((len = is.read(buffer)) > 0) {
+                                fos.write(buffer, 0, len);
+                            }
+                        }
+                        startDecryption(cacheFile);
+                    } catch (Exception e) {
+                        Toast.makeText(MainActivity.this, "加载文件失败", Toast.LENGTH_SHORT).show();
+                    }
+                }
+            }
+    );
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -116,20 +145,25 @@ public class MainActivity extends AppCompatActivity {
 
         bottomNav.setOnItemSelectedListener(item -> {
             int id = item.getItemId();
-            if (id == R.id.nav_music_list) viewPager.setCurrentItem(0, false);
-            else if (id == R.id.nav_decrypt) viewPager.setCurrentItem(1, false);
-            else if (id == R.id.nav_search) viewPager.setCurrentItem(2, false);
-            else if (id == R.id.nav_settings) viewPager.setCurrentItem(3, false);
+            if (id == R.id.nav_music_list) {
+                viewPager.setCurrentItem(0, false);
+            } else if (id == R.id.nav_decrypt) {
+                viewPager.setCurrentItem(1, false);
+            } else if (id == R.id.nav_search) {
+                viewPager.setCurrentItem(2, false);
+            } else if (id == R.id.nav_settings) {
+                viewPager.setCurrentItem(3, false);
+            }
             return true;
         });
     }
 
+    @SuppressLint("SetJavaScriptEnabled")
     private void initDecryptWebView() {
         decryptWebView = new WebView(getApplicationContext());
         WebSettings webSettings = decryptWebView.getSettings();
         webSettings.setJavaScriptEnabled(true);
         webSettings.setDomStorageEnabled(true);
-        webSettings.setDatabaseEnabled(true);
         webSettings.setAllowFileAccess(true);
         webSettings.setAllowContentAccess(true);
         webSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
@@ -137,14 +171,19 @@ public class MainActivity extends AppCompatActivity {
         decryptWebView.addJavascriptInterface(new BlobDownloadInterface(), "AndroidBlob");
 
         decryptWebView.setWebViewClient(new WebViewClient() {
+            @SuppressLint("WebViewClientOnReceivedSslError")
             @Override
-            public void onReceivedSslError(WebView view, SslErrorHandler handler, android.net.http.SslError error) { handler.proceed(); }
+            public void onReceivedSslError(WebView view, SslErrorHandler handler, android.net.http.SslError error) {
+                handler.proceed();
+            }
 
             @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
                 isPageFinished = true;
-                if (pendingFile != null) injectDecryptionScript();
+                if (pendingFile != null) {
+                    injectDecryptionScript();
+                }
             }
 
             @Nullable
@@ -161,7 +200,9 @@ public class MainActivity extends AppCompatActivity {
                             response.setResponseHeaders(headers);
                             return response;
                         }
-                    } catch (Exception e) { Log.e("Bridge", "Error", e); }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Bridge Error", e);
+                    }
                 }
                 return super.shouldInterceptRequest(view, request);
             }
@@ -180,7 +221,6 @@ public class MainActivity extends AppCompatActivity {
                 finalFileName = URLUtil.guessFileName(url, contentDisposition, mimeType);
             }
 
-            // 关键修复：采用分片提取 Blob，解决大文件 0B 和乱码问题
             String js = "javascript:(function() {" +
                     "  AndroidBlob.updateStatus('解密成功，正在保存...', 85);" +
                     "  var xhr = new XMLHttpRequest();" +
@@ -188,7 +228,7 @@ public class MainActivity extends AppCompatActivity {
                     "  xhr.responseType = 'blob';" +
                     "  xhr.onload = function() {" +
                     "    var blob = xhr.response;" +
-                    "    var chunkSize = 1024 * 512;" + // 512KB 分片提取
+                    "    var chunkSize = 1024 * 512;" +
                     "    var offset = 0;" +
                     "    AndroidBlob.startDownload('" + finalFileName + "');" +
                     "    function readNext() {" +
@@ -224,16 +264,15 @@ public class MainActivity extends AppCompatActivity {
             saveNormalFile(file);
             return;
         }
-        
+
         this.isDownloading = false;
         this.pendingFile = file;
-        this.targetFileName = file.getName(); 
+        this.targetFileName = file.getName();
         updateSearchProgress(true, "初始化环境中...", 10);
-        
+
         decryptWebView.onResume();
         decryptWebView.resumeTimers();
 
-        // 核心修复：每次开始前彻底刷新页面并清空缓存，防止第二首歌下载到第一首
         isPageFinished = false;
         decryptWebView.clearCache(true);
         decryptWebView.loadUrl(ONLINE_DECRYPT_URL);
@@ -262,7 +301,8 @@ public class MainActivity extends AppCompatActivity {
             bridgeFileName = bridgeFileName.substring(0, bridgeFileName.lastIndexOf(".")) + ".mflac";
         }
 
-        // 核心修复：增加 localStorage 清理和精准匹配（必须匹配当前正在处理的文件名）
+        final String fBridgeName = bridgeFileName.replace("'", "\\'");
+
         String script = "javascript:(function() {" +
                 "  localStorage.clear(); sessionStorage.clear();" +
                 "  AndroidBlob.updateStatus('正在同步文件...', 25);" +
@@ -272,95 +312,74 @@ public class MainActivity extends AppCompatActivity {
                 "  xhr.onload = function() {" +
                 "    if (xhr.status === 200) {" +
                 "      AndroidBlob.updateStatus('解密中...', 50);" +
-                "      var file = new File([xhr.response], '" + bridgeFileName.replace("'", "\\'") + "', {type: 'application/octet-stream'});" +
+                "      var file = new File([xhr.response], '" + fBridgeName + "', {type: 'application/octet-stream'});" +
                 "      var input = document.querySelector('input[type=file]') || document.querySelector('input');" +
                 "      if (input) {" +
                 "        var dt = new DataTransfer(); dt.items.add(file);" +
                 "        input.files = dt.files;" +
                 "        input.dispatchEvent(new Event('change', { bubbles: true }));" +
                 "        " +
-                "        var count = 0;" +
-                "        var timer = setInterval(function() {" +
-                "          count++;" +
-                "          /* 精准定位：在列表中寻找包含当前文件名的下载按钮 */ " +
-                "          var btn = Array.from(document.querySelectorAll('button, .download-button, .file-action-btn.download')).find(function(b) {" +
-                "              var row = b.closest('.file-item, tr, .list-item, .result-item') || b.parentElement;" +
-                "              var txt = row ? row.textContent.toLowerCase() : '';" +
-                "              var isMatch = txt.indexOf('" + bridgeFileName.toLowerCase().replace("'", "\\'") + "') !== -1 || " +
-                "                            txt.indexOf('" + fileName.toLowerCase().replace("'", "\\'") + "') !== -1;" +
-                "              var isDownload = b.textContent.includes('下载') || b.title.includes('下载') || b.classList.contains('download');" +
-                "              return isMatch && isDownload;" +
-                "          });" +
-                "          " +
-                "          if (btn) {" +
+                "        var startTime = Date.now();" +
+                "        function findAndClick() {" +
+                "          var element = document.querySelector('.el-icon-download') || document.querySelector('[class*=\"el-icon-download\"]');" +
+                "          if (element) {" +
                 "            AndroidBlob.updateStatus('解密完成，准备保存...', 75);" +
-                "            btn.click();" +
-                "            clearInterval(timer);" +
-                "          } else if (count > 80) {" +
-                "            clearInterval(timer);" +
-                "            AndroidBlob.onError('解密超时，请重试');" +
+                "            element.click();" +
+                "            if (element.parentElement) element.parentElement.click();" +
+                "            return true;" +
                 "          }" +
-                "        }, 1000);" +
-                "      } else { AndroidBlob.onError('解密组件加载失败'); }" +
-                "    } else { AndroidBlob.onError('同步文件失败'); }" +
+                "          return false;" +
+                "        }" +
+                "        " +
+                "        var observer = new MutationObserver(function(mutations, obs) {" +
+                "          if (findAndClick()) { obs.disconnect(); }" +
+                "          else if (Date.now() - startTime > 60000) {" +
+                "            obs.disconnect(); AndroidBlob.onError('解密超时，请检查文件格式');" +
+                "          }" +
+                "        });" +
+                "        observer.observe(document.body, { childList: true, subtree: true });" +
+                "        findAndClick();" +
+                "      } else { AndroidBlob.onError('找不到上传入口'); }" +
+                "    } else { AndroidBlob.onError('同步失败'); }" +
                 "  };" +
                 "  xhr.onerror = function() { AndroidBlob.onError('网络中断'); };" +
                 "  xhr.send();" +
                 "})();";
-        
+
         decryptWebView.post(() -> decryptWebView.evaluateJavascript(script, null));
-    }
-
-    public void triggerManualFilePicker() {
-        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-        intent.addCategory(Intent.CATEGORY_OPENABLE);
-        intent.setType("*/*");
-        startActivityForResult(intent, FILE_CHOOSER_RESULT_CODE);
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == FILE_CHOOSER_RESULT_CODE && resultCode == RESULT_OK && data != null && data.getData() != null) {
-            Uri uri = data.getData();
-            try {
-                String fileName = getFileNameFromUri(uri);
-                File cacheFile = new File(getExternalCacheDir(), fileName);
-                try (InputStream is = getContentResolver().openInputStream(uri);
-                     FileOutputStream fos = new FileOutputStream(cacheFile)) {
-                    byte[] buffer = new byte[8192];
-                    int len;
-                    while ((len = is.read(buffer)) > 0) fos.write(buffer, 0, len);
-                }
-                startDecryption(cacheFile);
-            } catch (Exception e) {
-                Toast.makeText(this, "加载文件失败", Toast.LENGTH_SHORT).show();
-            }
-        }
     }
 
     private void updateSearchProgress(boolean visible, String step, int percent) {
         runOnUiThread(() -> {
             try {
                 Fragment f0 = getSupportFragmentManager().findFragmentByTag("f0");
-                if (f0 instanceof SearchFragment) ((SearchFragment) f0).updateProgress(visible, step, percent);
+                if (f0 instanceof SearchFragment) {
+                    ((SearchFragment) f0).updateProgress(visible, step, percent);
+                }
                 Fragment f1 = getSupportFragmentManager().findFragmentByTag("f1");
-                if (f1 instanceof OnlineDecryptFragment) ((OnlineDecryptFragment) f1).updateProgress(visible, step, percent);
+                if (f1 instanceof OnlineDecryptFragment) {
+                    ((OnlineDecryptFragment) f1).updateProgress(visible, step, percent);
+                }
             } catch (Exception ignored) {}
         });
     }
 
     private void saveNormalFile(File sourceFile) {
         File destDir = new File(Environment.getExternalStorageDirectory(), "Music/MusicDecrypter");
-        if (!destDir.exists()) destDir.mkdirs();
+        if (!destDir.exists()) {
+            destDir.mkdirs();
+        }
         File destFile = new File(destDir, sourceFile.getName());
-        try (FileInputStream fis = new FileInputStream(sourceFile); FileOutputStream fos = new FileOutputStream(destFile)) {
+        try (FileInputStream fis = new FileInputStream(sourceFile);
+             FileOutputStream fos = new FileOutputStream(destFile)) {
             byte[] buffer = new byte[8192];
             int len;
-            while ((len = fis.read(buffer)) > 0) fos.write(buffer, 0, len);
+            while ((len = fis.read(buffer)) > 0) {
+                fos.write(buffer, 0, len);
+            }
             Toast.makeText(this, "文件已保存", Toast.LENGTH_SHORT).show();
             checkAndFetchLyric(sourceFile.getName(), destDir);
-            sendBroadcast(new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, Uri.fromFile(destFile)));
+            MediaScannerConnection.scanFile(this, new String[]{destFile.getAbsolutePath()}, null, null);
         } catch (IOException ignored) {}
     }
 
@@ -368,32 +387,48 @@ public class MainActivity extends AppCompatActivity {
         if (sp.getBoolean("fetch_lyric", false)) {
             updateSearchProgress(true, "匹配歌词...", 98);
             LyricFetcher.fetchLyric(MainActivity.this, fileName, saveDir, new LyricFetcher.LyricCallback() {
-                @Override public void onSuccess(File lyricFile) {
+                @Override
+                public void onSuccess(File lyricFile) {
                     runOnUiThread(() -> {
                         updateSearchProgress(false, "", 100);
                         Toast.makeText(MainActivity.this, "歌词已匹配下载", Toast.LENGTH_SHORT).show();
-                        sendBroadcast(new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, Uri.fromFile(lyricFile)));
+                        MediaScannerConnection.scanFile(MainActivity.this, new String[]{lyricFile.getAbsolutePath()}, null, null);
                     });
                 }
-                @Override public void onError(String msg) { updateSearchProgress(false, "", 100); }
+                @Override
+                public void onError(String msg) {
+                    updateSearchProgress(false, "", 100);
+                }
             });
         }
     }
 
     private class BlobDownloadInterface {
-        @JavascriptInterface public void updateStatus(String step, int percent) { updateSearchProgress(true, step, percent); }
         private FileOutputStream currentFos;
         private File currentOutputFile;
-        @JavascriptInterface public void startDownload(String name) {
+
+        @JavascriptInterface
+        public void updateStatus(String step, int percent) {
+            updateSearchProgress(true, step, percent);
+        }
+
+        @JavascriptInterface
+        public void startDownload(String name) {
             try {
                 File d = new File(Environment.getExternalStorageDirectory(), "Music/MusicDecrypter");
-                if (!d.exists()) d.mkdirs();
+                if (!d.exists()) {
+                    d.mkdirs();
+                }
                 currentOutputFile = new File(d, name);
                 currentFos = new FileOutputStream(currentOutputFile);
-            } catch (Exception ignored) { isDownloading = false; }
+            } catch (Exception ignored) {
+                isDownloading = false;
+            }
         }
-        @JavascriptInterface public void appendChunk(String b64) {
-            try { 
+
+        @JavascriptInterface
+        public void appendChunk(String b64) {
+            try {
                 if (currentFos != null) {
                     byte[] data = Base64.decode(b64, Base64.DEFAULT);
                     if (data != null && data.length > 0) {
@@ -403,38 +438,55 @@ public class MainActivity extends AppCompatActivity {
                 }
             } catch (Exception ignored) {}
         }
-        @JavascriptInterface public void endDownload(String name) {
+
+        @JavascriptInterface
+        public void endDownload(String name) {
             try {
-                if (currentFos != null) { 
+                if (currentFos != null) {
                     currentFos.flush();
-                    currentFos.getFD().sync(); // 物理刷盘，解决 0B 问题
-                    currentFos.close(); 
-                    currentFos = null; 
+                    currentFos.getFD().sync();
+                    currentFos.close();
+                    currentFos = null;
                 }
                 runOnUiThread(() -> {
                     updateSearchProgress(false, "", 100);
                     if (currentOutputFile != null && currentOutputFile.length() > 0) {
                         Toast.makeText(MainActivity.this, "解密成功！", Toast.LENGTH_LONG).show();
                         checkAndFetchLyric(name, currentOutputFile.getParentFile());
-                        sendBroadcast(new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, Uri.fromFile(currentOutputFile)));
+                        MediaScannerConnection.scanFile(MainActivity.this, new String[]{currentOutputFile.getAbsolutePath()}, null, null);
                     } else {
                         Toast.makeText(MainActivity.this, "保存异常：文件内容为空", Toast.LENGTH_LONG).show();
                     }
-                    targetFileName = null; isDownloading = false;
+                    targetFileName = null;
+                    isDownloading = false;
                     pendingFile = null;
                 });
-            } catch (Exception ignored) { isDownloading = false; }
+            } catch (Exception ignored) {
+                isDownloading = false;
+            }
         }
-        @JavascriptInterface public void onError(String msg) {
+
+        @JavascriptInterface
+        public void onError(String msg) {
             runOnUiThread(() -> {
                 Toast.makeText(MainActivity.this, msg, Toast.LENGTH_LONG).show();
                 updateSearchProgress(false, null, 0);
-                targetFileName = null; isDownloading = false;
+                targetFileName = null;
+                isDownloading = false;
             });
         }
     }
 
-    public WebView getDecryptWebView() { return decryptWebView; }
+    public WebView getDecryptWebView() {
+        return decryptWebView;
+    }
+
+    public void triggerManualFilePicker() {
+        Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+        intent.setType("*/*");
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        fileChooserLauncher.launch(intent);
+    }
 
     private static class MimeTypeMapUtils {
         public static String getExtensionFromMimeType(String mimeType) {

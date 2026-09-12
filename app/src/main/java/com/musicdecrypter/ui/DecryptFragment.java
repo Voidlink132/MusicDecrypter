@@ -7,6 +7,7 @@ import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -49,6 +50,8 @@ import okhttp3.Response;
 
 public class DecryptFragment extends Fragment {
 
+    private static final String TAG = "DecryptFragment";
+
     private EditText etSearch;
     private ImageButton btnSearch;
     private TabLayout tabLayout;
@@ -58,6 +61,8 @@ public class DecryptFragment extends Fragment {
 
     private final List<Song> songList = new ArrayList<>();
     private SongAdapter adapter;
+
+    // 每次 download task 使用独立的 OkHttpClient，避免并发响应体交叉污染
     private final OkHttpClient client = new OkHttpClient();
 
     @Nullable
@@ -277,6 +282,22 @@ public class DecryptFragment extends Fragment {
         else fetchKugouPlayUrl(song);
     }
 
+    /**
+     * 清理文件名：移除或替换文件系统不支持的字符，防止乱码和命名异常
+     */
+    private String sanitizeFileName(String name) {
+        if (TextUtils.isEmpty(name)) return "未知";
+        // 替换文件系统不允许的字符
+        name = name.replaceAll("[/\\\\:*?\"<>|]", "_");
+        // 移除不可见控制字符（0x00-0x1F, 0x7F）和 Unicode 替换字符
+        name = name.replaceAll("[\\p{Cntrl}&&[^\r\n\\t]]", "");
+        // 去除首尾空格和点号（避免隐藏文件问题）
+        name = name.trim().replaceAll("^[.]+", "_").replaceAll("[.]+$", "");
+        // 如果清理后为空，给默认值
+        if (name.trim().isEmpty()) name = "未知";
+        return name;
+    }
+
     private void fetchNeteasePlayUrl(Song song, String br) {
         // 新版API：song/url/v1，带 os=pc 参数，更接近网页端行为
         String url = "https://music.163.com/api/song/url/v1?id=" + song.getId() + "&level=" + brToLevel(br) + "&os=pc";
@@ -285,7 +306,8 @@ public class DecryptFragment extends Fragment {
             @Override public void onFailure(Call call, IOException e) { showError("获取失败"); }
             @Override public void onResponse(Call call, Response response) throws IOException {
                 try {
-                    JsonObject json = JsonParser.parseString(response.body().string()).getAsJsonObject();
+                    String body = response.body().string();
+                    JsonObject json = JsonParser.parseString(body).getAsJsonObject();
                     JsonArray data = json.getAsJsonArray("data");
                     if (data != null && data.size() > 0) {
                         JsonObject first = data.get(0).getAsJsonObject();
@@ -293,8 +315,8 @@ public class DecryptFragment extends Fragment {
                             String playUrl = first.get("url").getAsString();
                             if (!playUrl.isEmpty()) {
                                 String ext = getUrlExtension(playUrl, br);
-                                String fileName = song.getName() + " - " + song.getArtist() + ext;
-                                startDownloadTask(fileName, playUrl);
+                                String fileName = sanitizeFileName(song.getName() + " - " + song.getArtist()) + ext;
+                                startDownloadTask(fileName, playUrl, song);
                                 return;
                             }
                         }
@@ -315,7 +337,8 @@ public class DecryptFragment extends Fragment {
             @Override public void onFailure(Call call, IOException e) { showError("获取失败"); }
             @Override public void onResponse(Call call, Response response) throws IOException {
                 try {
-                    JsonObject json = JsonParser.parseString(response.body().string()).getAsJsonObject();
+                    String body = response.body().string();
+                    JsonObject json = JsonParser.parseString(body).getAsJsonObject();
                     JsonArray data = json.getAsJsonArray("data");
                     if (data != null && data.size() > 0) {
                         JsonObject first = data.get(0).getAsJsonObject();
@@ -323,8 +346,8 @@ public class DecryptFragment extends Fragment {
                             String playUrl = first.get("url").getAsString();
                             if (!playUrl.isEmpty()) {
                                 String ext = getUrlExtension(playUrl, br);
-                                String fileName = song.getName() + " - " + song.getArtist() + ext;
-                                startDownloadTask(fileName, playUrl);
+                                String fileName = sanitizeFileName(song.getName() + " - " + song.getArtist()) + ext;
+                                startDownloadTask(fileName, playUrl, song);
                                 return;
                             }
                         }
@@ -393,7 +416,8 @@ public class DecryptFragment extends Fragment {
                                             if (sipArr.size() > 0) sip = sipArr.get(0).getAsString();
                                         }
                                         String fullUrl = sip.isEmpty() ? "http://ws.stream.qqmusic.qq.com/" + purl : sip + purl;
-                                        startDownloadTask(song.getName() + " - " + song.getArtist() + ".mp3", fullUrl);
+                                        String fileName = sanitizeFileName(song.getName() + " - " + song.getArtist()) + ".mp3";
+                                        startDownloadTask(fileName, fullUrl, song);
                                         return;
                                     }
                                 }
@@ -426,7 +450,11 @@ public class DecryptFragment extends Fragment {
                         if (data.has("play_url") && !data.get("play_url").isJsonNull()) {
                             String dUrl = data.get("play_url").getAsString();
                             if (!dUrl.isEmpty()) {
-                                startDownloadTask(song.getName() + " - " + song.getArtist() + ".mp3", dUrl);
+                                String ext = ".mp3";
+                                if (dUrl.contains(".flac")) ext = ".flac";
+                                else if (dUrl.contains(".ogg")) ext = ".ogg";
+                                String fileName = sanitizeFileName(song.getName() + " - " + song.getArtist()) + ext;
+                                startDownloadTask(fileName, dUrl, song);
                                 return;
                             }
                         }
@@ -437,37 +465,65 @@ public class DecryptFragment extends Fragment {
         });
     }
 
-    private void startDownloadTask(String fileName, String url) {
+    private void startDownloadTask(String fileName, String url, Song song) {
         if (getActivity() == null || getContext() == null) return;
         getActivity().runOnUiThread(() -> {
             Toast.makeText(getContext(), "开始下载: " + fileName, Toast.LENGTH_SHORT).show();
-            DownloadManager.Request request = new DownloadManager.Request(Uri.parse(url));
-            request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
-            request.setDestinationInExternalPublicDir(Environment.DIRECTORY_MUSIC, "MusicDecrypter/" + fileName);
-            DownloadManager dm = (DownloadManager) getContext().getSystemService(Context.DOWNLOAD_SERVICE);
-            if (dm != null) dm.enqueue(request);
 
-            // 下载后自动匹配歌词
-            checkAndFetchLyric(fileName);
+            try {
+                DownloadManager.Request request = new DownloadManager.Request(Uri.parse(url));
+                request.setTitle(fileName);
+                request.setDescription("MusicDecrypter 下载");
+                request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+                request.setDestinationInExternalPublicDir(Environment.DIRECTORY_MUSIC, "MusicDecrypter/" + fileName);
+
+                // 允许所有网络类型，确保下载能触发
+                request.setAllowedNetworkTypes(DownloadManager.Request.NETWORK_WIFI | DownloadManager.Request.NETWORK_MOBILE);
+                request.setAllowedOverRoaming(true);
+
+                DownloadManager dm = (DownloadManager) getContext().getSystemService(Context.DOWNLOAD_SERVICE);
+                if (dm != null) {
+                    long downloadId = dm.enqueue(request);
+                    Log.d(TAG, "下载已入队, id=" + downloadId + ", file=" + fileName);
+                } else {
+                    Toast.makeText(getContext(), "下载管理器不可用", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "下载入队失败: " + e.getMessage(), e);
+                Toast.makeText(getContext(), "下载失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            // 下载后自动匹配歌词，传入 Song 对象以精准匹配
+            checkAndFetchLyric(fileName, song);
         });
     }
 
-    private void checkAndFetchLyric(String fileName) {
+    private void checkAndFetchLyric(String fileName, Song song) {
         if (getContext() == null) return;
         SharedPreferences sp = getContext().getSharedPreferences("config", Context.MODE_PRIVATE);
         if (sp.getBoolean("fetch_lyric", false)) {
             File saveDir = new File(Environment.getExternalStorageDirectory(), "Music/MusicDecrypter");
-            LyricFetcher.fetchLyric(getContext(), fileName, saveDir, new LyricFetcher.LyricCallback() {
+            // 使用 Song 对象直接按 ID 获取歌词，避免关键词搜索错配
+            LyricFetcher.fetchLyricBySong(getContext(), song, fileName, saveDir, new LyricFetcher.LyricCallback() {
                 @Override
                 public void onSuccess(File lyricFile) {
                     if (getActivity() == null) return;
                     getActivity().runOnUiThread(() -> {
                         Toast.makeText(getContext(), "歌词已匹配下载", Toast.LENGTH_SHORT).show();
-                        getContext().sendBroadcast(new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, Uri.fromFile(lyricFile)));
+                        try {
+                            getContext().sendBroadcast(new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, Uri.fromFile(lyricFile)));
+                        } catch (Exception e) {
+                            Log.w(TAG, "发送媒体扫描广播失败", e);
+                        }
                     });
                 }
                 @Override
-                public void onError(String msg) { /* 歌词匹配失败静默处理 */ }
+                public void onError(String msg) {
+                    Log.w(TAG, "歌词匹配失败: " + msg);
+                    /* 歌词匹配失败静默处理 */
+                }
             });
         }
     }
@@ -530,7 +586,6 @@ public class DecryptFragment extends Fragment {
                 tvName = v.findViewById(R.id.tv_file_name); 
                 tvInfo = v.findViewById(R.id.tv_file_path); 
                 btnDownload = v.findViewById(R.id.btn_decrypt); 
-                v.setPadding(16, 16, 16, 16);
             }
         }
     }
